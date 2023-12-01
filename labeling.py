@@ -29,10 +29,10 @@ while cap.isOpened():
     if key == ord('q'):
         break
     if key == 82:
-        # up_arrow
+        # UP
         speed -= 1
     elif key == 84:
-        # down_arrow
+        # DOWN
         speed += 1
     elif key == 49:
         # 1 - point left
@@ -41,7 +41,7 @@ while cap.isOpened():
         # 2 - point right
         labels.append([1, frame_num])
     elif key == 51:
-        # SPACE - flip last label
+        # 3 - flip last label
         if len(labels) > 0:
             labels[-1][0] = 1 - labels[-1][0]
     
