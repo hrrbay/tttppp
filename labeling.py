@@ -17,23 +17,25 @@ while not cap.isOpened():
 length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 frame_num = 0
-speed = 5
+delay = 1
 while cap.isOpened():
     ret, frame = cap.read()
+    if frame is None:
+        break
     cv2.putText(frame, f'Frame {frame_num}/{length} ({frame_num*100/length:.0f}%)', (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2, cv2.LINE_AA)
     if len(labels) > 0:
         cv2.putText(frame, f'Last label: {labels[-1][0]}', (frame.shape[1]-300,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2, cv2.LINE_AA)
     cv2.imshow('video', frame)
 
-    key = cv2.waitKey(speed) & 0xFF
+    key = cv2.waitKey(delay) & 0xFF
     if key == ord('q'):
         break
     if key == 82:
         # UP
-        speed -= 1
+        delay -= 1
     elif key == 84:
         # DOWN
-        speed += 1
+        delay += 1
     elif key == 49:
         # 1 - point left
         labels.append([0, frame_num])
@@ -45,9 +47,10 @@ while cap.isOpened():
         if len(labels) > 0:
             labels[-1][0] = 1 - labels[-1][0]
     
-    speed = max(speed, 1)
+    delay = max(delay, 1)
     frame_num += 1
 
-np.savetxt(out_filename, labels, ('%d', '%07d'))
+if len(labels) > 0:
+    np.savetxt(out_filename, labels, ('%d', '%07d'))
 cap.release()
 cv2.destroyAllWindows()
