@@ -68,17 +68,17 @@ class TTData(Dataset):
         window_frames = vid.frames[window_range[0]:window_range[1]]
         window_frames = [Image.open(frame).convert('RGB') for frame in window_frames]                  # This is slow
 
-        annotations = {k: v[window_range[0]:window_range[1]] for k,v in vid.annotations.items()}
+        labels = vid.annotations['next_points'][window_range[0]:window_range[1]]
 
         # pad window with empty images -- How to handle annotations? OR just skip windows with size < win_size OR actually overlap (see first comment)
         assert len(window_frames) <= self.win_size
         for _ in range(len(window_frames), self.win_size):
             window_frames.append(Image.new('RGB', window_frames[0].size))
-            for k in annotations.keys():
-                annotations[k].append(0) # I don't know, see above
+            labels.append(0) # I don't know, see above
         assert len(window_frames) == self.win_size
 
-        return window_frames, annotations
+        # TODO: replace window_frames with seg-masks, ball positions
+        return window_frames, labels
 
 
 
