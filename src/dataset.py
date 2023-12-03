@@ -35,6 +35,11 @@ class TTVid():
         
         self.num_frames = len(self.frames)
 
+        # annoations
+        self.annotations = {
+            'next_points': self.next_points
+        }
+
 
 
 
@@ -58,14 +63,22 @@ class TTData(Dataset):
             idx -= vid_lens[vid_idx-1]
 
         # load images as PIL -- TODO: transforms (need ToTensor at least, could also H-flip with point-label flip=)
-        window = vid.frames[idx*self.win_size:idx*self.win_size+self.win_size]
-        window = [Image.open(frame).convert('RGB') for frame in window] # This is slow
+        window_range = (idx*self.win_size, idx*self.win_size+self.win_size)
 
-        # pad window with zeros
-        assert len(window) <= self.win_size
-        for _ in range(len(window), self.win_size):
-            window.append(Image.new('RGB', window[0].size))
-        return window
+        window_frames = vid.frames[window_range[0]:window_range[1]]
+        window_frames = [Image.open(frame).convert('RGB') for frame in window_frames]                  # This is slow
+
+        annotations = {k: v[window_range[0]:window_range[1]] for k,v in vid.annotations.items()}
+
+        # pad window with empty images -- How to handle annotations? OR just skip windows with size < win_size OR actually overlap (see first comment)
+        assert len(window_frames) <= self.win_size
+        for _ in range(len(window_frames), self.win_size):
+            window_frames.append(Image.new('RGB', window_frames[0].size))
+            for k in annotations.keys():
+                annotations[k].append(0) # I don't know, see above
+        assert len(window_frames) == self.win_size
+
+        return window_frames, annotations
 
 
 
@@ -80,5 +93,6 @@ for game in os.listdir(train_path):
     vids.append(TTVid(os.path.join(train_path, game), annotations, 120, 60))
 
 dataset = TTData(vids, win_size=30)
-for win in dataset:
-    print(len(win))
+for frames, annotations in dataset:
+    print(len(frames))
+    # print(annotations)
