@@ -12,21 +12,34 @@ class TTVid():
         data = data[0::downscale]
         return data
 
-    def __init__(self, path, annotations, src_fps, target_fps):
+    def __init__(self, path, annotations, src_fps, target_fps, sequences=False, window_size=30):
         self.path = path
-        self.src_fps = src_fps;
-        self.target_fps = target_fps;
+        self.src_fps = src_fps
+        self.target_fps = target_fps
 
         # load all frames, create annotations
         self.frames = sorted(os.listdir(path))
         self.frames = [os.path.join(path, frame) for frame in self.frames]
 
-        # set next points
-        last_point = 0
-        self.next_points = torch.empty(len(self.frames), 1, dtype=int)
-        for player, frame in annotations['points']:
-            self.next_points[last_point:frame] = player
-            last_point = frame
+        if sequences:
+            frames_temp = self.frames.copy()
+            self.frames = []
+            self.next_points = torch.empty(len(annotations['points'])//2, 1, dtype=int)
+            self.start_end = torch.empty(len(annotations['points'])//2, 2, dtype=int)
+            for i in range(0, len(annotations['points']), 2):
+                start = annotations['points'][i][1]
+                end = annotations['points'][i + 1][1]
+                next_point_player = annotations['points'][i + 1][0]
+                self.next_points[i // 2] = next_point_player
+                self.start_end[i // 2] = torch.tensor([start, end])
+                self.frames.extend(frames_temp[start:end])
+        else:
+            # set next points
+            last_point = 0
+            self.next_points = torch.empty(len(self.frames), 1, dtype=int)
+            for player, frame in annotations['points']:
+                self.next_points[last_point:frame] = player
+                last_point = frame
 
         # post-process data
         downscale = src_fps // target_fps
@@ -49,7 +62,6 @@ class TTData(Dataset):
         self.win_size = win_size
 
     def __len__(self):
-        len = sum(np.ceil(vid.num_frames / self.win_size).astype(int) for vid in self.vids)
         return sum(np.ceil(vid.num_frames / self.win_size).astype(int) for vid in self.vids)
     
     def __getitem__(self, idx):
@@ -83,16 +95,28 @@ class TTData(Dataset):
 
 
 
-train_path = '/home/jakob/uni/ivu/ttnet/dataset/training/images'
+'''train_path = '/home/christian/Desktop/TTNet-Real-time-Analysis-System-for-Table-Tennis-Pytorch/dataset/training/images'
 vids = []
 for game in os.listdir(train_path):
-    points = np.loadtxt(f'point_labels/train_{game[-1]}.txt')
+    points = np.loadtxt(f'../point_labels/train_{game[-1]}.txt')
     annotations = {
-        'points': points.astype(int)
+        'points': points.astype(int)# TODO
     }
-    vids.append(TTVid(os.path.join(train_path, game), annotations, 120, 60))
+    vids.append(TTVid(os.path.join(train_path, game), annotations, 120, 60, sequences=True))
 
-dataset = TTData(vids, win_size=30)
-for frames, annotations in dataset:
+train_dataset = TTData(vids, win_size=30)'''
+
+test_path = '/home/christian/Desktop/TTNet-Real-time-Analysis-System-for-Table-Tennis-Pytorch/dataset/test/images'
+vids = []
+for game in os.listdir(test_path):
+    points = np.loadtxt(f'../point_labels/test_{game[-1]}.txt')
+    annotations = {
+        'points': points.astype(int) # TODO
+    }
+    vids.append(TTVid(os.path.join(test_path, game), annotations, 120, 60, sequences=True))
+
+test_dataset = TTData(vids, win_size=30)
+
+for frames, annotations in test_dataset:
     print(len(frames))
     # print(annotations)

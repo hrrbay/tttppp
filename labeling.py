@@ -39,13 +39,20 @@ while cap.isOpened():
     elif key == 49:
         # 1 - point left
         labels.append([0, frame_num])
+        print("Point left " + str(frame_num))
     elif key == 50:
         # 2 - point right
         labels.append([1, frame_num])
+        print("Point right " + str(frame_num))
     elif key == 51:
         # 3 - flip last label
+        print("Flip last label")
         if len(labels) > 0:
             labels[-1][0] = 1 - labels[-1][0]
+    elif key == 115:
+        # s - start
+        labels.append([0, frame_num])
+        print("Start " + str(frame_num))
     
     delay = max(delay, 1)
     frame_num += 1
