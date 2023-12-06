@@ -4,6 +4,8 @@ import os
 import pdb
 from torch.utils.data import Dataset
 from PIL import Image
+import cv2
+
 
 class TTVid():
 
@@ -58,8 +60,42 @@ class TTVid():
             'start_end': self.start_end
         }'''
 
+def extract_player_mask(img):
+    # convert to HSV 
+    hsv_image = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    # we mask out the middle third to get rid of the referee
+    hsv_image[:,img.shape[1]//3:2*img.shape[1]//3, :] = 0
+    
+    # get green blobs and sort by area to get players
+    green = np.array([60, 255, 255])
+    green_mask = cv2.inRange(hsv_image, green, green)
+    contours, _ = cv2.findContours(green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    
+    # when players are missing fill up with empty masks
+    player_masks = []
+    for _ in range(2-len(contours)):
+        player_masks.append((0, img.shape[1]//2, img.shape[0]//2, None))
+    
+    # extract the 2 largest green blobs
+    for contour in contours[:2]:
+         # find the centers of the contours
+        M = cv2.moments(contour)
+        center_x = int(M["m10"] / M["m00"])
+        center_y = int(M["m01"] / M["m00"])
+        
+        # compute the bounding box for the contour
+        (x, y, w, h) = cv2.boundingRect(contour)
+        mask = np.zeros((h, w), dtype="uint8")
+        contour = contour - [x, y]
+        cv2.drawContours(mask, [contour], -1, 255, 1)
+        
+        # first member of tuple indicates that the player in in frame
+        player_masks.append((1, center_x, center_y, mask))
 
-
+    player_masks = sorted(player_masks, key=lambda x: x[1])
+    
+    return player_masks[0], player_masks[1]
 
 class TTData(Dataset):
     def __init__(self, tt_vids, win_size=30):
