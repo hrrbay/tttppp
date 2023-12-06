@@ -7,51 +7,56 @@ from PIL import Image
 
 class TTVid():
 
-    def post_process(self, data, last_point, downscale):
-        data = data[:last_point]
+    def post_process(self, data, downscale):
         data = data[0::downscale]
         return data
 
-    def __init__(self, path, annotations, src_fps, target_fps, sequences=False, window_size=30):
+    def __init__(self, path, annotations, src_fps, target_fps, labeled_start=False, window_size=30):
         self.path = path
         self.src_fps = src_fps
         self.target_fps = target_fps
 
         # load all frames, create annotations
-        self.frames = sorted(os.listdir(path))
-        self.frames = [os.path.join(path, frame) for frame in self.frames]
+        total_frames = [os.path.join(path, frame) for frame in sorted(os.listdir(path))]
 
-        if sequences:
-            frames_temp = self.frames.copy()
-            self.frames = []
-            self.next_points = torch.empty(len(annotations['points'])//2, 1, dtype=int)
-            self.start_end = torch.empty(len(annotations['points'])//2, 2, dtype=int)
+        self.sequences = []
+        if labeled_start: # start of sequences are labeled
+            self.next_points = torch.empty(len(annotations['points']) // 2, 1, dtype=int) # len of annotations is doubled because start is labeled
+            self.start_end = torch.empty(len(annotations['points']) // 2, 2, dtype=int) # start end pairs of sequences for index calculation later on
             for i in range(0, len(annotations['points']), 2):
                 start = annotations['points'][i][1]
                 end = annotations['points'][i + 1][1]
                 next_point_player = annotations['points'][i + 1][0]
                 self.next_points[i // 2] = next_point_player
                 self.start_end[i // 2] = torch.tensor([start, end])
-                self.frames.extend(frames_temp[start:end])
-        else:
-            # set next points
-            last_point = 0
-            self.next_points = torch.empty(len(self.frames), 1, dtype=int)
-            for player, frame in annotations['points']:
-                self.next_points[last_point:frame] = player
-                last_point = frame
+                self.sequences.append(total_frames[start:end])
+        else: # start of sequences are not labeled -> use point of previous sequence as start
+            self.next_points = torch.empty(len(annotations['points']), 1, dtype=int)
+            self.start_end = torch.empty(len(annotations['points']), 2, dtype=int)
+            for i in range(len(annotations['points'])):
+                if i == 0:
+                    start = 0
+                else:
+                    start = annotations['points'][i - 1][1] + 1 # maybe use different offset
+                end = annotations['points'][i][1]
+                next_point_player = annotations['points'][i][0]
+                self.next_points[i] = next_point_player
+                self.start_end[i] = torch.tensor([start, end])
+                self.sequences.append(total_frames[start:end])
 
         # post-process data
         downscale = src_fps // target_fps
-        self.frames = self.post_process(self.frames, last_point, downscale)
-        self.next_points = self.post_process(self.next_points, last_point, downscale)
-        
-        self.num_frames = len(self.frames)
+        self.num_sequences = len(self.sequences)
+        self.num_frames = 0
+        for i in range(self.num_sequences):
+            self.sequences[i] = self.post_process(self.sequences[i], downscale)
+            self.num_frames += len(self.sequences[i])
 
         # annoations
-        self.annotations = {
-            'next_points': self.next_points
-        }
+        '''self.annotations = { # redundant right now?
+            'next_points': self.next_points,
+            'start_end': self.start_end
+        }'''
 
 
 
@@ -113,7 +118,7 @@ for game in os.listdir(test_path):
     annotations = {
         'points': points.astype(int) # TODO
     }
-    vids.append(TTVid(os.path.join(test_path, game), annotations, 120, 60, sequences=True))
+    vids.append(TTVid(os.path.join(test_path, game), annotations, 120, 60, labeled_start=False))
 
 test_dataset = TTData(vids, win_size=30)
 
