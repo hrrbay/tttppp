@@ -24,17 +24,17 @@ class TTVid():
         self.sequences = []
         if labeled_start: # start of sequences are labeled
             self.next_points = torch.empty(len(annotations['points']) // 2, 1, dtype=int) # len of annotations is doubled because start is labeled
-            self.start_end = torch.empty(len(annotations['points']) // 2, 2, dtype=int) # start end pairs of sequences for index calculation later on
+            #self.start_end = torch.empty(len(annotations['points']) // 2, 2, dtype=int) # start end pairs of sequences, not needed right now
             for i in range(0, len(annotations['points']), 2):
                 start = annotations['points'][i][1]
                 end = annotations['points'][i + 1][1]
                 next_point_player = annotations['points'][i + 1][0]
                 self.next_points[i // 2] = next_point_player
-                self.start_end[i // 2] = torch.tensor([start, end])
+                #self.start_end[i // 2] = torch.tensor([start, end])
                 self.sequences.append(total_frames[start:end])
         else: # start of sequences are not labeled -> use point of previous sequence as start
             self.next_points = torch.empty(len(annotations['points']), 1, dtype=int)
-            self.start_end = torch.empty(len(annotations['points']), 2, dtype=int)
+            #self.start_end = torch.empty(len(annotations['points']), 2, dtype=int)
             for i in range(len(annotations['points'])):
                 if i == 0:
                     start = 0
@@ -43,7 +43,7 @@ class TTVid():
                 end = annotations['points'][i][1]
                 next_point_player = annotations['points'][i][0]
                 self.next_points[i] = next_point_player
-                self.start_end[i] = torch.tensor([start, end])
+                #self.start_end[i] = torch.tensor([start, end])
                 self.sequences.append(total_frames[start:end])
 
         # post-process data
@@ -54,6 +54,8 @@ class TTVid():
             self.sequences[i] = self.post_process(self.sequences[i], downscale)
             self.num_frames += len(self.sequences[i])
 
+        self.wins_per_seq = [len(seq) + 1 - window_size for seq in self.sequences]
+        self.num_wins = sum(wins for wins in self.wins_per_seq)
         # annoations
         '''self.annotations = { # redundant right now?
             'next_points': self.next_points,
@@ -101,37 +103,37 @@ class TTData(Dataset):
     def __init__(self, tt_vids, win_size=30):
         self.vids = tt_vids
         self.win_size = win_size
+        self.wins_per_vid = [vid.num_wins for vid in self.vids]
 
     def __len__(self):
-        return sum(np.ceil(vid.num_frames / self.win_size).astype(int) for vid in self.vids)
+        return sum(wins for wins in self.wins_per_vid) # num of sliding windows over all sequences of all videos
     
-    def __getitem__(self, idx):
-        # find correct video -- treat seperately in order to avoid overlapping windows
-        vid_lens = np.cumsum([np.ceil(vid.num_frames / self.win_size).astype(int) for vid in self.vids])
-        vid_idx = np.nonzero(vid_lens > idx)[0][0]
+    def __getitem__(self, idx): # idx is the index of the sliding window over all sequences of all videos
+        vid_idx = 0
+        for i, wins in enumerate(self.wins_per_vid):
+            if idx < wins:
+                break
+            idx -= wins
+            vid_idx += 1
+
         vid = self.vids[vid_idx]
-        
-        # fix idx to current video
-        if vid_idx > 0:
-            idx -= vid_lens[vid_idx-1]
+        seq_idx = 0
+        for i, wins in enumerate(vid.wins_per_seq):
+            if idx < wins:
+                break
+            idx -= wins
+            seq_idx += 1
 
-        # load images as PIL -- TODO: transforms (need ToTensor at least, could also H-flip with point-label flip=)
-        window_range = (idx*self.win_size, idx*self.win_size+self.win_size)
+        seq = vid.sequences[seq_idx]
+        window_frames = seq[idx:idx+self.win_size]
 
-        window_frames = vid.frames[window_range[0]:window_range[1]]
+
         window_frames = [Image.open(frame).convert('RGB') for frame in window_frames]                  # This is slow
-
-        labels = vid.annotations['next_points'][window_range[0]:window_range[1]]
-
-        # pad window with empty images -- How to handle annotations? OR just skip windows with size < win_size OR actually overlap (see first comment)
-        assert len(window_frames) <= self.win_size
-        for _ in range(len(window_frames), self.win_size):
-            window_frames.append(Image.new('RGB', window_frames[0].size))
-            labels.append(0) # I don't know, see above
+        label = vid.next_points[seq_idx]
         assert len(window_frames) == self.win_size
 
         # TODO: replace window_frames with seg-masks, ball positions
-        return window_frames, labels
+        return window_frames, label
 
 
 
@@ -157,6 +159,7 @@ for game in os.listdir(test_path):
     vids.append(TTVid(os.path.join(test_path, game), annotations, 120, 60, labeled_start=False))
 
 test_dataset = TTData(vids, win_size=30)
+frames, label = test_dataset[0]
 
 for frames, annotations in test_dataset:
     print(len(frames))
