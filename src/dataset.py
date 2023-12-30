@@ -137,18 +137,20 @@ class TTData(Dataset):
         seg_masks = seq[idx:idx+self.win_size]
 
         # reshape to CDHW for 3d conv -- don't know if explicit channel-dimension of 1 is necessary but better be safe
-        seg_masks = torch.stack([torch.tensor(f.toarray()).reshape(1, vid.resize[1], vid.resize[0]) for f in seg_masks], dim=0)
+        seg_masks = seg_masks.toarray().reshape(1, -1, vid.resize[1], vid.resize[0])
+        # seg_masks = torch.stack([torch.tensor(f.toarray()).reshape(1, vid.resize[1], vid.resize[0]) for f in seg_masks], dim=0)
 
         # uncomment this if you want to check how it looks
-        # for f in window_frames.squeeze():
+        # for f in seg_masks.squeeze():
         #     if idx < 100:
         #         break
         #     import matplotlib.pyplot as plt
-        #     plt.imshow(f.cpu().numpy(), cmap='gray')
+        #     # plt.imshow(f.cpu().numpy(), cmap='gray')
+        #     plt.imshow(f, cmap='gray')
         #     plt.show()
 
         label = vid.next_points[seq_idx]
-        assert seg_masks.shape[0] == self.win_size
+        assert seg_masks.shape[1] == self.win_size
 
         # TODO: replace window_frames with seg-masks, ball positions
         return seg_masks, label
@@ -170,24 +172,26 @@ def get_grayscale_mask(img, ball_pos=None, ball_radius=10):
         grayscale_mask[mask] += 0.6
     return grayscale_mask
 
+def test_load():
+    '''
+        Some tests
+    '''
+    path = './data/annotations/test_1'
+    vid = TTVid(path, 120, 60)
+    dataset = TTData([vid])
+    loader = DataLoader(dataset, batch_size=64)
 
-'''
-    Some tests
-'''
-path = './data/annotations/test_1'
-vid = TTVid(path, 120, 60)
-dataset = TTData([vid])
-loader = DataLoader(dataset, batch_size=64)
-
-import time
-t = time.time()
-total_time = 0
-n = 0
-for a in loader:
-    cur_t = time.time() - t
-    print(f'{cur_t=}', end='\r')
-    total_time += cur_t
+    import time
     t = time.time()
-    n += 1
+    total_time = 0
+    n = 0
+    for a in loader:
+        cur_t = time.time() - t
+        print(f'{cur_t=}', end='\r')
+        total_time += cur_t
+        t = time.time()
+        n += 1
 
-print(f'avg load: {total_time / n}')
+    print(f'avg load: {total_time / n}')
+
+test_load()
