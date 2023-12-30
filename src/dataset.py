@@ -6,6 +6,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 import cv2
 import scipy.sparse as sp
+from torch.utils.data import DataLoader
 
 class TTVid():
 
@@ -13,7 +14,7 @@ class TTVid():
         data = data[0::downscale]
         return data
 
-    def __init__(self, path, annotations, src_fps, target_fps, labeled_start=False, window_size=30):
+    def __init__(self, path, src_fps, target_fps, labeled_start=False, window_size=30):
         self.path = path
         self.src_fps = src_fps
         self.target_fps = target_fps
@@ -24,29 +25,30 @@ class TTVid():
 
         # load all frames, create annotations
         self.sparse_data = sp.load_npz(os.path.join(path,'t3p3_mask.npz')).tolil()
+        self.point_labels = np.loadtxt(os.path.join(path, 'point_labels.txt')).astype(int)
 
         self.sequences = []
         if labeled_start: # start of sequences are labeled
-            self.next_points = torch.empty(len(annotations['points']) // 2, 1, dtype=int) # len of annotations is doubled because start is labeled
-            #self.start_end = torch.empty(len(annotations['points']) // 2, 2, dtype=int) # start end pairs of sequences, not needed right now
-            for i in range(0, len(annotations['points']), 2):
-                start = annotations['points'][i][1]
-                end = annotations['points'][i + 1][1]
-                next_point_player = annotations['points'][i + 1][0]
+            self.next_points = torch.empty(len(self.point_labels) // 2, 1, dtype=int) # len of annotations is doubled because start is labeled
+            #self.start_end = torch.empty(len(self.point_labels) // 2, 2, dtype=int) # start end pairs of sequences, not needed right now
+            for i in range(0, len(self.point_labels), 2):
+                start = self.point_labels[i][1]
+                end = self.point_labels[i + 1][1]
+                next_point_player = self.point_labels[i + 1][0]
                 self.next_points[i // 2] = next_point_player
                 #self.start_end[i // 2] = torch.tensor([start, end])
                 self.sequences.append(self.sparse_data[start:end])
                 # self.sequences.append(total_frames[start:end])
         else: # start of sequences are not labeled -> use point of previous sequence as start
-            self.next_points = torch.empty(len(annotations['points']), 1, dtype=int)
-            #self.start_end = torch.empty(len(annotations['points']), 2, dtype=int)
-            for i in range(len(annotations['points'])):
+            self.next_points = torch.empty(len(self.point_labels), 1, dtype=int)
+            #self.start_end = torch.empty(len(self.point_labels), 2, dtype=int)
+            for i in range(len(self.point_labels)):
                 if i == 0:
                     start = 0
                 else:
-                    start = annotations['points'][i - 1][1] + 1 # maybe use different offset
-                end = annotations['points'][i][1]
-                next_point_player = annotations['points'][i][0]
+                    start = self.point_labels[i - 1][1] + 1 # maybe use different offset
+                end = self.point_labels[i][1]
+                next_point_player = self.point_labels[i][0]
                 self.next_points[i] = next_point_player
                 #self.start_end[i] = torch.tensor([start, end])
                 self.sequences.append(self.sparse_data[start:end])
@@ -173,18 +175,15 @@ def get_grayscale_mask(img, ball_pos=None, ball_radius=10):
     Some tests
 '''
 path = './data/annotations/test_1'
-points = np.loadtxt('./point_labels/test_1.txt')
-annotations = {
-    'points': points.astype(int)
-}
-vid = TTVid(path, annotations, 120, 60)
+vid = TTVid(path, 120, 60)
 dataset = TTData([vid])
+loader = DataLoader(dataset, batch_size=64)
 
 import time
 t = time.time()
 total_time = 0
 n = 0
-for a in dataset:
+for a in loader:
     cur_t = time.time() - t
     print(f'{cur_t=}', end='\r')
     total_time += cur_t
