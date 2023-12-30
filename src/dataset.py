@@ -26,7 +26,7 @@ class TTVid():
     
 
         # load all frames, create annotations
-        self.sparse_data = sp.load_npz(os.path.join(path,'t3p3_mask.npz')).tolil()
+        self.sparse_data = sp.load_npz(os.path.join(path,'t3p3_mask.npz')).tocsr()
         self.point_labels = np.loadtxt(os.path.join(path, 'point_labels.txt')).astype(int)
 
         self.sequences = []
