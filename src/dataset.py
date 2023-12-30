@@ -8,6 +8,8 @@ import cv2
 import scipy.sparse as sp
 from torch.utils.data import DataLoader
 
+from torchvision.transforms.v2 import ToTensor, Normalize, RandomHorizontalFlip, Compose
+
 class TTVid():
 
     def post_process(self, data, downscale):
@@ -153,7 +155,7 @@ class TTData(Dataset):
         assert seg_masks.shape[1] == self.win_size
 
         # TODO: replace window_frames with seg-masks, ball positions
-        return seg_masks, label
+        return torch.tensor(seg_masks), label
 
 
 def get_grayscale_mask(img, ball_pos=None, ball_radius=10):
