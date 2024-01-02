@@ -7,8 +7,10 @@ from PIL import Image
 import cv2
 import scipy.sparse as sp
 from torch.utils.data import DataLoader
+import copy
 
 from torchvision.transforms.v2 import ToTensor, Normalize, RandomHorizontalFlip, Compose
+from PIL import Image
 
 class TTVid():
 
@@ -16,17 +18,22 @@ class TTVid():
         data = data[0::downscale]
         return data
 
-    def __init__(self, path, src_fps, target_fps, labeled_start=False, window_size=30):
+    def __init__(self, path, src_fps, target_fps, labeled_start=False, window_size=30, sparse_data=True):
         self.path = path
         self.src_fps = src_fps
         self.target_fps = target_fps
 
         self.in_size = (320, 128) 
         self.resize = (320, 128) # in case we want to downsample masks -- NOTE that data has to be properly extracted again (and will be of higher size)
-    
 
+        # whether to load images from sparse array or from actual jpg-files
+        self.sparse_data = sparse_data
+        if self.sparse_data:
+            self.seg_masks = sp.load_npz(os.path.join(path,'t3p3_mask.npz')).tocsr()
+        else:
+            self.seg_masks = [os.path.join(path, 't3p3_masks', f) for f in os.listdir(os.path.join(path, 't3p3_masks'))]
         # load all frames, create annotations
-        self.sparse_data = sp.load_npz(os.path.join(path,'t3p3_mask.npz')).tocsr()
+        # self.sparse_data = sp.load_npz(os.path.join(path,'t3p3_mask.npz')).tocsr()
         self.point_labels = np.loadtxt(os.path.join(path, 'point_labels.txt')).astype(int)
 
         self.sequences = []
@@ -38,9 +45,7 @@ class TTVid():
                 end = self.point_labels[i + 1][1]
                 next_point_player = self.point_labels[i + 1][0]
                 self.next_points[i // 2] = next_point_player
-                #self.start_end[i // 2] = torch.tensor([start, end])
-                self.sequences.append(self.sparse_data[start:end])
-                # self.sequences.append(total_frames[start:end])
+                self.sequences.append(self.seg_masks[start:end])
         else: # start of sequences are not labeled -> use point of previous sequence as start
             self.next_points = torch.empty(len(self.point_labels), 1, dtype=int)
             #self.start_end = torch.empty(len(self.point_labels), 2, dtype=int)
@@ -52,25 +57,19 @@ class TTVid():
                 end = self.point_labels[i][1]
                 next_point_player = self.point_labels[i][0]
                 self.next_points[i] = next_point_player
-                #self.start_end[i] = torch.tensor([start, end])
-                self.sequences.append(self.sparse_data[start:end])
-                # self.sequences.append(total_frames[start:end])
+                self.sequences.append(self.seg_masks[start:end])
 
-        # post-process data
+        # post-process data 
         downscale = src_fps // target_fps
         self.num_sequences = len(self.sequences)
         self.num_frames = 0
         for i in range(self.num_sequences):
             self.sequences[i] = self.post_process(self.sequences[i], downscale)
-            self.num_frames += self.sequences[i].shape[0]
+            self.num_frames += self.sequences[i].shape[0] if self.sparse_data else len(self.sequences[i])
 
-        self.wins_per_seq = [seq.shape[0] + 1 - window_size for seq in self.sequences]
+        self.wins_per_seq = [(seq.shape[0] if self.sparse_data else len(seq)) + 1 - window_size for seq in self.sequences]
         self.num_wins = sum(wins for wins in self.wins_per_seq)
-        # annoations
-        '''self.annotations = { # redundant right now?
-            'next_points': self.next_points,
-            'start_end': self.start_end
-        }'''
+
 
 def extract_player_mask(img):
     # convert to HSV 
@@ -115,6 +114,7 @@ class TTData(Dataset):
         self.vids = tt_vids
         self.win_size = win_size
         self.wins_per_vid = [vid.num_wins for vid in self.vids]
+        self.transforms = Compose([ToTensor()])
 
     def __len__(self):
         return sum(wins for wins in self.wins_per_vid) # num of sliding windows over all sequences of all videos
@@ -136,26 +136,36 @@ class TTData(Dataset):
             seq_idx += 1
 
         seq = vid.sequences[seq_idx]
-        seg_masks = seq[idx:idx+self.win_size]
+        seg_masks = copy.deepcopy(seq[idx:idx+self.win_size])
 
-        # reshape to CDHW for 3d conv -- don't know if explicit channel-dimension of 1 is necessary but better be safe
-        seg_masks = seg_masks.toarray().reshape(1, -1, vid.resize[1], vid.resize[0])
-        # seg_masks = torch.stack([torch.tensor(f.toarray()).reshape(1, vid.resize[1], vid.resize[0]) for f in seg_masks], dim=0)
+        if vid.sparse_data:
+            seg_masks = seg_masks.toarray().reshape(-1, vid.resize[1], vid.resize[0])
+        else:
+            seg_masks = [Image.open(f).resize((vid.resize[0], vid.resize[1])) for f in seg_masks]
+        # apply transforms
+        seg_masks = [self.transforms(mask) for mask in seg_masks]
+        # reshape to CDHW for 3d conv -- don't know if explicit channel-dimension of 1 is necessary but better be safe+
+        pdb.set_trace()
+        seg_masks = torch.stack(seg_masks, dim=1)
+
+        # original = seq[idx:idx+self.win_size].toarray().reshape(-1, vid.resize[1], vid.resize[0])
+        # for m1, m2 in zip(seg_masks.squeeze(), torch.tensor(original)):
+        #     assert torch.all(m1 == m2)
 
         # uncomment this if you want to check how it looks
         # for f in seg_masks.squeeze():
         #     if idx < 100:
         #         break
         #     import matplotlib.pyplot as plt
-        #     # plt.imshow(f.cpu().numpy(), cmap='gray')
         #     plt.imshow(f, cmap='gray')
+        #     print(f'show')
         #     plt.show()
 
         label = vid.next_points[seq_idx]
         assert seg_masks.shape[1] == self.win_size
 
         # TODO: replace window_frames with seg-masks, ball positions
-        return torch.tensor(seg_masks), label
+        return seg_masks, label
 
 
 def get_grayscale_mask(img, ball_pos=None, ball_radius=10):
@@ -178,11 +188,14 @@ def test_load():
     '''
         Some tests
     '''
-    path = './data/annotations/test_1'
-    vid = TTVid(path, 120, 60)
+    # path = './data/annotations/test_1'
+    path = '/mnt/data/datasets/t3p3/annotations/test_1/'
+    vid = TTVid(path, 120, 60, sparse_data=False)
+    print(f'video created')
     dataset = TTData([vid])
+    print(f'ds created')
     loader = DataLoader(dataset, batch_size=64)
-
+    print(f'dl created')
     import time
     t = time.time()
     total_time = 0
