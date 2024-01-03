@@ -9,8 +9,8 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
     annotations_path = os.path.join(data_path, 'annotations')
 
     # TODO: use all data once it is finished
-    tst_dirs = [os.path.join(annotations_path, d) for d in os.listdir(annotations_path) if 'test_2' in d]
-    trn_dirs = [os.path.join(annotations_path, d) for d in os.listdir(annotations_path) if 'train_1' in d]
+    tst_dirs = [os.path.join(annotations_path, d) for d in os.listdir(annotations_path) if 'test' in d]
+    trn_dirs = [os.path.join(annotations_path, d) for d in os.listdir(annotations_path) if 'train' in d]
 
     trn_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, mode=mode) for d in trn_dirs]
     tst_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, mode=mode) for d in tst_dirs]

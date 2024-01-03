@@ -12,6 +12,20 @@ import argparse
 
 from torchvision.transforms.v2 import ToTensor, Normalize, RandomHorizontalFlip, Compose
 from PIL import Image
+import zarr
+
+class SparseCSR():
+    def __init__(self, shape, data, indptr, indices):
+        self.data = data
+        self.shape = shape
+        self.indptr = indptr
+        self.indices = indices
+
+    def __getitem__(self, idx):
+        arr = np.zeros((self.shape[0]))
+        col_idx = self.indices[self.indptr[idx]:self.indptr[idx+1]]
+        arr[col_idx] = self.data[self.indptr[idx]:self.indptr[idx+1]]
+        return arr
 
 class TTVid():
     def post_process(self, data, downscale):
@@ -37,14 +51,21 @@ class TTVid():
             self.seg_masks = np.lib.format.open_memmap(os.path.join(path, 't3p3_masks.npy'), shape=shape)
         elif self.mode == 'disk':
             self.seg_masks = [os.path.join(path, 't3p3_masks', f) for f in os.listdir(os.path.join(path, 't3p3_masks'))]
+        elif self.mode == 'zarr':
+            zarr_root = zarr.open(os.path.join(path, 't3p3_masks.zarr'), mode='r')
+            # num_masks = zarr_root.attrs['num_masks']
+            # mask_shape = zarr_root.attrs['mask_shape']
+            self.seg_masks = zarr_root['masks']
+            pdb.set_trace()
+            print(f'info:\n{self.seg_masks.info}')
+
         # load all frames, create annotations
-        # self.sparse_data = sp.load_npz(os.path.join(path,'t3p3_mask.npz')).tocsr()
+        # TODO: (!!) offset point labels by 4 (5?) frames as we are missing some frames at the start due to sliding window of ttnet
         self.point_labels = np.loadtxt(os.path.join(path, 'point_labels.txt')).astype(int)
 
         self.sequences = []
         if labeled_start: # start of sequences are labeled
             self.next_points = torch.empty(len(self.point_labels) // 2, 1, dtype=int) # len of annotations is doubled because start is labeled
-            #self.start_end = torch.empty(len(self.point_labels) // 2, 2, dtype=int) # start end pairs of sequences, not needed right now
             for i in range(0, len(self.point_labels), 2):
                 start = self.point_labels[i][1]
                 end = self.point_labels[i + 1][1]
@@ -53,7 +74,6 @@ class TTVid():
                 self.sequences.append(self.seg_masks[start:end])
         else: # start of sequences are not labeled -> use point of previous sequence as start
             self.next_points = torch.empty(len(self.point_labels), 1, dtype=int)
-            #self.start_end = torch.empty(len(self.point_labels), 2, dtype=int)
             for i in range(len(self.point_labels)):
                 if i == 0:
                     start = 0
@@ -104,10 +124,10 @@ class TTData(Dataset):
         seq = vid.sequences[seq_idx]
         seg_masks = copy.deepcopy(seq[idx:idx+self.win_size])
 
-        # NOTE: all pretty useless except mmap
+        # NOTE: all pretty useless except mmap and zarr
         if vid.mode == 'sparse':
             seg_masks = seg_masks.toarray().reshape(-1, vid.resize[1], vid.resize[0])
-        elif vid.mode == 'mmap':
+        elif vid.mode == 'mmap' or vid.mode == 'zarr':
             pass
         elif vid.mode == 'disk':
             seg_masks = [Image.open(f).resize((vid.resize[0], vid.resize[1])) for f in seg_masks]
@@ -137,15 +157,15 @@ def test_load():
     '''
         Some tests
     '''
-    path = '/mnt/data/datasets/t3p3/annotations/test_2'
+    path = '/mnt/data/datasets/t3p3/annotations/test_1'
     # path = '/home/jakob/uni/ivu/data/annotations/test_2'
     # path = '/mnt/data/datasets/t3p3/annotations/test_1/'
 
-    vid = TTVid(path, 120, 60, mode='mmap')
+    vid = TTVid(path, 120, 60, mode='zarr')
     print(f'video created')
-    dataset = TTData([vid])
+    dataset = TTData([vid], transforms=[ToTensor()])
     print(f'ds created')
-    loader = DataLoader(dataset, batch_size=16, num_workers=16)
+    loader = DataLoader(dataset, batch_size=64, num_workers=0)
     print(f'dl created')
     print(f'len(loader): {len(loader)}')
     import time
@@ -161,4 +181,13 @@ def test_load():
     print()
     print(f'avg load ({n} batches): {total_time / n}')
 
+test_load()
 # test_load()
+
+# path = '/mnt/data/datasets/t3p3/annotations/train_2/t3p3_masks.npy'
+# arr = np.lib.format.open_memmap(path, mode='r')
+# sp_arr = sp.lil_array((arr.shape[0], arr.shape[1]*arr.shape[2]))
+# for row in range(arr.shape[0]):
+#     print(f'{row}/{arr.shape[0]}', end='\r')
+#     sp_arr[row] = arr[row].flatten()
+# pdb.set_trace()
