@@ -3,7 +3,7 @@ import os
 
 from torchvision import transforms
 
-BASE_PATH = '/home/jakob/datasets'
+BASE_PATH = './data'
 data_config = {
     # TODO: add normalization for all
     'base': {
