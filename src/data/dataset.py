@@ -251,7 +251,7 @@ def test_load():
         n += 1
     print()
     print(f'avg load ({n} batches): {total_time / n}')
-test_load()
+# test_load()value=${1:-the default value}
 
 def show_masks():
     path = '/home/jakob/datasets/t3p3/test_2'
