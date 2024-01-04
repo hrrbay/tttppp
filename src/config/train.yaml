@@ -1,0 +1,17 @@
+train:
+  optimizer: sgd
+  nepochs: 100
+  batch_size: 2
+  lr_patience: 6
+  lr_factor: 3
+  lr_min: 1e-4
+  gpu: 1
+  seed: 0
+
+  adam:
+    lr: 0.001
+
+  sgd:
+    lr: 0.01
+    weight-decay: 0.0002
+    momentum: 0.9

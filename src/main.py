@@ -10,6 +10,8 @@ from data import data_loader, dataset, data_config
 # from network import TestNet
 import train
 import network
+import config.utils
+
 
 
 def parse_arguments():
@@ -33,12 +35,15 @@ def parse_arguments():
     parser.add_argument('--window-size', type=int, default=7)
     parser.add_argument('--gpu', type=int, default='0')
     parser.add_argument('--model-config', type=str, default=None)
+    parser.add_argument('--train-config', type=str, default=None)
     return parser.parse_args()
 
 
 def main():
     # load args
     args = parse_arguments()
+    if args.train_config is not None:
+        args = config.utils.update_args(args, args.train_config)  # update args with train config file
 
     # set device
     if args.gpu < 0:
