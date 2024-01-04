@@ -32,6 +32,7 @@ def parse_arguments():
     parser.add_argument('--labeled-start', action='store_true', default=False)
     parser.add_argument('--window-size', type=int, default=7)
     parser.add_argument('--gpu', type=int, default='0')
+    parser.add_argument('--model-config', type=str, default=None)
     return parser.parse_args()
 
 
@@ -62,7 +63,7 @@ def main():
 
     # load network
     if hasattr(network, args.network):
-        model = getattr(network, args.network)()
+        model = getattr(network, args.network)(model_config=args.model_config)
     elif hasattr(torchvision.models.video, args.network):
         # torchvision models. Assuming last layer to be fc
         model = getattr(torchvision.models.video, args.network)(pretrained=args.pretrained, progress=True)

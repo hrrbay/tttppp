@@ -1,0 +1,7 @@
+hiera_b:
+  pretrained: true
+  checkpoint: mae_k400_ft_k400
+  init_embed_dim: 96
+  stages: !!python/tuple [2, 3, 16, 3]
+  finetune: true
+  return_intermediates: true

@@ -2,7 +2,7 @@ import torch
 import pdb
 
 class TestNet(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, model_config=None):
         super().__init__()
         self.conv1 = torch.nn.Conv3d(1, 1, 2, 3)
         self.conv2 = torch.nn.Conv3d(1, 1, 2, 3)
