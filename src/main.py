@@ -32,6 +32,7 @@ def parse_arguments():
     parser.add_argument('--labeled-start', action='store_true', default=False)
     parser.add_argument('--window-size', type=int, default=7)
     parser.add_argument('--gpu', type=int, default='0')
+    parser.add_argument('--freeze-backbone', default=False, action='store_true')
     return parser.parse_args()
 
 
@@ -70,13 +71,23 @@ def main():
         assert type(head_var) == torch.nn.Linear, 'Fix this.'
         setattr(model, head_name, torch.nn.Linear(in_features=head_var.in_features, out_features=1))
     # TODO: add other models here if needed
-    
     model.to(device)
+
+    if args.freeze_backbone:
+        layers = list(model.modules())[1:-1]
+        for l in layers:
+            print(f'freezing {l}')
+            if hasattr(l, 'weight'):
+                l.weight.requires_grad = False
+            if hasattr(l, 'bias') and l.bias is not None:
+                l.bias.requires_grad = False
 
     trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=0.1)
     
     # optimizer
-    optim = SGD(params=[p for p in model.parameters() if p.requires_grad], lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    train_params = [p for p in model.parameters() if p.requires_grad]
+    print(f'training {len(train_params)} params')
+    optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device)
 if __name__ == '__main__':
     main()

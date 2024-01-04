@@ -11,6 +11,8 @@ from torch.utils.data import DataLoader
 import copy
 import argparse
 import psutil
+import random
+import torchvision
 
 from torchvision.transforms.v2 import ToTensor, Normalize, RandomHorizontalFlip, Compose
 from PIL import Image
@@ -170,11 +172,12 @@ class TTVid():
         return self.seg_masks[frame_idx], self.next_points[idx]
 
 class TTData(Dataset):
-    def __init__(self, tt_vids, win_size=30, transforms=[]):
+    def __init__(self, tt_vids, win_size=30, transforms=[], flip=0):
         self.vids = tt_vids
         self.win_size = win_size
         self.wins_per_vid = [vid.num_wins for vid in self.vids]
         self.transforms = Compose(transforms)
+        self.flip = 0.5
         print(f'Dataset created. Total number of windows: {sum(v.num_wins for v in self.vids)}')
 
     def __len__(self):
@@ -207,6 +210,7 @@ class TTData(Dataset):
 
         # reshape to CDHW for 3d conv -- don't know if explicit channel-dimension of 1 is necessary but better be safe
         seg_masks = torch.stack(seg_masks, dim=1).to(torch.float32)
+        assert seg_masks.shape[1] == self.win_size
 
         # TODO: remove this when good
         # uncomment this if you want to check how it looks
@@ -214,9 +218,11 @@ class TTData(Dataset):
         # print(f'{middle.shape=}')
         # cv2.imshow('asdf', middle)
         # cv2.waitKey(1)
-
         label = vid.next_points[seq_idx]
-        assert seg_masks.shape[1] == self.win_size
+        flip = random.uniform(0,1) < self.flip
+        if flip:
+            seg_masks = torchvision.transforms.functional.hflip(seg_masks)
+            label = 1 - label
 
         return seg_masks, label
 
