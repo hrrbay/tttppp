@@ -5,3 +5,4 @@
 '''
 
 from .test_network import TestNet
+from .Hiera import HieraB

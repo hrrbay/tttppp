@@ -1,6 +1,7 @@
 import torch
 import pdb
 import time
+from tqdm import tqdm
 
 def criterion(outputs, targets):
     return torch.nn.functional.binary_cross_entropy_with_logits(outputs, targets.to(torch.float32))
@@ -8,7 +9,7 @@ def criterion(outputs, targets):
 def train_epoch(trn_loader, model, optim, device):
     model.train()
     batch = 0
-    for i,(masks, targets) in enumerate(trn_loader):
+    for i,(masks, targets) in enumerate(tqdm(trn_loader)):
         outputs = model(masks.to(device))
         optim.zero_grad()
         loss = criterion(outputs.to(device), targets.to(device))
