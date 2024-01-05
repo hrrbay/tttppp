@@ -1,9 +1,13 @@
 import argparse
 import importlib
 import pdb
+import os
+import time
 
 import torch
 from torch.optim import SGD
+from torch.utils.tensorboard import SummaryWriter
+
 import torchvision
 
 from data import data_loader, dataset, data_config
@@ -36,6 +40,8 @@ def parse_arguments():
     parser.add_argument('--gpu', type=int, default='0')
     parser.add_argument('--model-config', type=str, default=None)
     parser.add_argument('--train-config', type=str, default=None)
+    parser.add_argument('--has-checkpoint', type=bool, default=False)
+    parser.add_argument('--checkpoint-freq', type=int, default=5)
     return parser.parse_args()
 
 
@@ -78,11 +84,18 @@ def main():
     # TODO: add other models here if needed
     
     model.to(device)
-
     trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=0.1)
+    
+    # init logging w/ tensorboard
+    run_id = f'{args.network}_{args.lr}' #we need some naming scheme
+    if not os.path.exists(f'../runs/{run_id}'):
+        os.makedirs(f'../runs/{run_id}')
+        os.makedirs(f'../runs/{run_id}/logs')
+        os.makedirs(f'../runs/{run_id}/model')
+    summary_writer = SummaryWriter(f'../runs/{run_id}/logs')
     
     # optimizer
     optim = SGD(params=[p for p in model.parameters() if p.requires_grad], lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-    train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device)
+    train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device, summary_writer, args.has_checkpoint, args.checkpoint_freq)
 if __name__ == '__main__':
     main()
