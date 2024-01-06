@@ -22,6 +22,13 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
     tst_loader = DataLoader(tst_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     trn_loader = DataLoader(trn_ds, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    num_zeros = len(val_loader.dataset)
+    for masks, labels in val_loader:
+        num_zeros -= labels.sum().item()
+    num_ones = len(val_loader.dataset) - num_zeros
+    print(f'num_zeros: {num_zeros}, num_ones: {num_ones}, {num_ones/num_zeros=}')
+    
     return trn_loader, val_loader, tst_loader
 
 '''

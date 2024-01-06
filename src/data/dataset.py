@@ -177,7 +177,7 @@ class TTData(Dataset):
         self.win_size = win_size
         self.wins_per_vid = [vid.num_wins for vid in self.vids]
         self.transforms = Compose(transforms)
-        self.flip = 0.5
+        self.flip = 0
         print(f'Dataset created. Total number of windows: {sum(v.num_wins for v in self.vids)}')
 
     def __len__(self):
@@ -214,10 +214,11 @@ class TTData(Dataset):
 
         # TODO: remove this when good
         # uncomment this if you want to check how it looks
-        # middle = (seg_masks[:,seg_masks.shape[1]//2]*255).cpu().numpy().astype(np.uint8).transpose(1,2,0)
+        middle = (seg_masks[:,seg_masks.shape[1]//2]*255).cpu().numpy().astype(np.uint8).transpose(1,2,0)
         # print(f'{middle.shape=}')
-        # cv2.imshow('asdf', middle)
-        # cv2.waitKey(1)
+        cv2.imshow('asdf', middle)
+        cv2.waitKey(1)
+
         label = vid.next_points[seq_idx]
         flip = random.uniform(0,1) < self.flip
         if flip:
@@ -232,8 +233,8 @@ def test_load():
     '''
     # path = '/mnt/data/datasets/t3p3/annotations/test_2'
     vids = []
-    for n in range(1, 8):
-        vids.append(TTVid(f'/home/jakob/datasets/t3p3/test_{n}', 120, 120))
+    for n in range(1, 5):
+        vids.append(TTVid(f'/home/jakob/datasets/t3p3/train_{n}', 120, 120))
     # path = '/home/jakob/uni/ivu/data/annotations/test_2'
     # path = '/mnt/data/datasets/t3p3/annotations/test_1/'
 
