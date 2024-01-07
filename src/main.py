@@ -29,10 +29,11 @@ def parse_arguments():
     parser.add_argument('--data-config', type=str, default='base')
     parser.add_argument('--src-fps', type=int, default=120)
     parser.add_argument('--target-fps', type=int, default=30)
-    parser.add_argument('--labeled-start', action='store_true', default=False)
+    parser.add_argument('--labeled-start', action='store_true', default=True)
     parser.add_argument('--window-size', type=int, default=7)
     parser.add_argument('--gpu', type=int, default='0')
     parser.add_argument('--freeze-backbone', default=False, action='store_true')
+    parser.add_argument('--model-name', default='model', type=str, required=False)
     return parser.parse_args()
 
 
@@ -89,5 +90,8 @@ def main():
     print(f'training {len(train_params)} params')
     optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device)
+
+    # save model
+    # torch.save(model.state_dict(), f'./models/{args.model_name}.ckpt')
 if __name__ == '__main__':
     main()

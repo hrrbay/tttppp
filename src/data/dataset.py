@@ -134,27 +134,29 @@ class TTVid():
 
         self.sequences = []
         self.sequence_idx = []
-        if labeled_start: # start of sequences are labeled
-            self.next_points = torch.empty(len(self.point_labels) // 2, 1, dtype=int) # len of annotations is doubled because start is labeled
-            for i in range(0, len(self.point_labels), 2):
-                start = self.point_labels[i][1]
-                end = self.point_labels[i + 1][1]
-                next_point_player = self.point_labels[i + 1][0]
-                self.next_points[i // 2] = next_point_player
-                self.sequence_idx.append((start,end))
-                self.sequences.append(self.seg_masks[start:end])
-        else: # start of sequences are not labeled -> use point of previous sequence as start
-            self.next_points = torch.empty(len(self.point_labels), 1, dtype=int)
-            for i in range(len(self.point_labels)):
+        self.next_points = torch.empty(len(self.point_labels), 1, dtype=int)
+        for i in range(len(self.point_labels)):
+            end = self.point_labels[i][1]
+            if not labeled_start:
+                # include dead frames
                 if i == 0:
                     start = 0
                 else:
                     start = self.point_labels[i - 1][1] + 1 # maybe use different offset
-                end = self.point_labels[i][1]
-                next_point_player = self.point_labels[i][0]
-                self.next_points[i] = next_point_player
-                self.sequence_idx.append((start,end))
-                self.sequences.append(self.seg_masks[start:end])
+            else:
+                # (not-)dead frames are labeled
+                self.serve_labels = np.loadtxt(os.path.join(path, 'serve_labels.txt')).astype(int)
+                if self.serve_labels.shape[1] > 1:
+                    # remove useless label
+                    self.serve_labels = self.serve_labels[:, 1]
+                serve_label = self.serve_labels[self.serve_labels < end]
+                assert serve_label.shape[0] > 0
+                start = serve_label[-1] # take serve preceeding current point
+                # start = self.serve_labels[serve_idx[-1]]
+            next_point_player = self.point_labels[i][0]
+            self.next_points[i] = next_point_player
+            self.sequence_idx.append((start,end))
+            self.sequences.append(self.seg_masks[start:end])
 
         # TODO: need to clean this up again. had to store indices and using them to load when trying smth else. Functionality is the same as before
         self.sequence_idx = [np.arange(seq[0], seq[1], self.src_fps // self.target_fps) for seq in self.sequence_idx]
@@ -214,10 +216,11 @@ class TTData(Dataset):
 
         # TODO: remove this when good
         # uncomment this if you want to check how it looks
-        middle = (seg_masks[:,seg_masks.shape[1]//2]*255).cpu().numpy().astype(np.uint8).transpose(1,2,0)
-        # print(f'{middle.shape=}')
-        cv2.imshow('asdf', middle)
-        cv2.waitKey(1)
+        # middle = (seg_masks[:,seg_masks.shape[1]//2]*255).cpu().numpy().astype(np.uint8).transpose(1,2,0)
+        # # # print(f'{middle.shape=}')
+        # print(f'{seq_idx=}', end='\r')
+        # cv2.imshow('asdf', middle)
+        # cv2.waitKey(0)
 
         label = vid.next_points[seq_idx]
         flip = random.uniform(0,1) < self.flip
@@ -233,8 +236,8 @@ def test_load():
     '''
     # path = '/mnt/data/datasets/t3p3/annotations/test_2'
     vids = []
-    for n in range(1, 5):
-        vids.append(TTVid(f'/home/jakob/datasets/t3p3/train_{n}', 120, 120))
+    for n in range(5, 6):
+        vids.append(TTVid(f'/home/jakob/datasets/t3p3/train_{n}', 120, 30, labeled_start=True))
     # path = '/home/jakob/uni/ivu/data/annotations/test_2'
     # path = '/mnt/data/datasets/t3p3/annotations/test_1/'
 
@@ -252,16 +255,16 @@ def test_load():
     n = 0
     for a in loader:
         cur_t = time.time() - t
-        print(f'{cur_t=:02.4f} ({n=})', end='\r')
+        # print(f'{cur_t=:02.4f} ({n=})', end='\r')
         total_time += cur_t
         t = time.time()
         n += 1
     print()
     print(f'avg load ({n} batches): {total_time / n}')
-# test_load()value=${1:-the default value}
+# test_load()
 
 def show_masks():
-    path = '/home/jakob/datasets/t3p3/test_2'
+    path = '/home/jakob/datasets/t3p3/test_1'
     masks = np.load(os.path.join(path, 't3p3_masks.npy'))
 
     for mask in masks:
