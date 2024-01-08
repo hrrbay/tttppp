@@ -123,7 +123,7 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
     model.load_state_dict(best_model)
     
     print('Evaluating on test set...')
-    tst_loss, tst_acc = eval(tst_loader, model, device)
+    tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
     print('-' * 80)
     print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:02.2f}%')
     print(f'Total time trained: {(time.time() - t0)/3600:.2f}h')
