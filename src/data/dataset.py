@@ -124,13 +124,12 @@ class TTVid():
         self.target_fps = target_fps
 
         # seg-masks are stored and compressed using zarr
-        # self.zarr_root = zarr.load(os.path.join(path, 't3p3_masks.zarr'))
-        # self.seg_masks = self.zarr_root['masks']
         self.seg_masks = np.lib.format.open_memmap(os.path.join(path, 't3p3_masks.npy'))
 
         # load all frames, create annotations
         # TODO: (!!) offset point labels by 4 (5?) frames as we are missing some frames at the start due to sliding window of ttnet
         self.point_labels = np.loadtxt(os.path.join(path, 'point_labels.txt')).astype(int)
+        print(f'{path=}')
 
         self.sequences = []
         self.sequence_idx = []
@@ -158,20 +157,26 @@ class TTVid():
             self.sequence_idx.append((start,end))
             self.sequences.append(self.seg_masks[start:end])
 
-        # TODO: need to clean this up again. had to store indices and using them to load when trying smth else. Functionality is the same as before
-        self.sequence_idx = [np.arange(seq[0], seq[1], self.src_fps // self.target_fps) for seq in self.sequence_idx]
-        self.num_sequences = len(self.sequence_idx)
-        self.seq_lens = [len(seq) for seq in self.sequence_idx]
-        self.num_frames = sum(self.seq_lens)
-        self.wins_per_seq = [seq_len + 1 - window_size for seq_len in self.seq_lens]
+
+        # post-process data
+        downscale = src_fps // target_fps
+        self.num_sequences = len(self.sequences)
+        self.num_frames = 0
+        for i in range(self.num_sequences):
+            self.sequences[i] = self.post_process(self.sequences[i], downscale)
+            self.num_frames += self.sequences[i].shape[0]
+
+        self.wins_per_seq = [seq.shape[0] + 1 - window_size for seq in self.sequences]
         self.num_wins = sum(wins for wins in self.wins_per_seq)
+
+        # # TODO: need to clean this up again. had to store indices and using them to load when trying smth else. Functionality is the same as before
+        # self.sequence_idx = [np.arange(seq[0], seq[1], self.src_fps // self.target_fps) for seq in self.sequence_idx]
+        # self.num_sequences = len(self.sequence_idx)
+        # self.seq_lens = [len(seq) for seq in self.sequence_idx]
+        # self.num_frames = sum(self.seq_lens)
+        # self.wins_per_seq = [seq_len + 1 - window_size for seq_len in self.seq_lens]
+        # self.num_wins = sum(wins for wins in self.wins_per_seq)
         
-    def __getitem__(self, idx):
-        '''
-            Unused. Artifact from trying somethong else
-        '''
-        frame_idx = self.sequence_idx[idx]
-        return self.seg_masks[frame_idx], self.next_points[idx]
 
 class TTData(Dataset):
     def __init__(self, tt_vids, win_size=30, transforms=[], flip=0):
@@ -179,7 +184,6 @@ class TTData(Dataset):
         self.win_size = win_size
         self.wins_per_vid = [vid.num_wins for vid in self.vids]
         self.transforms = Compose(transforms)
-        self.flip = 0
         print(f'Dataset created. Total number of windows: {sum(v.num_wins for v in self.vids)}')
 
     def __len__(self):
@@ -202,8 +206,6 @@ class TTData(Dataset):
             idx -= wins
             seq_idx += 1
 
-        # seq, label = vid[seq_idx]
-        # print(f'vid_idx: {vid_idx} idx: {idx}, seq_idx: {seq_idx}')
         seq = vid.sequences[seq_idx]
         seg_masks = seq[idx:idx+self.win_size]  
 
@@ -215,18 +217,22 @@ class TTData(Dataset):
         assert seg_masks.shape[1] == self.win_size
 
         # TODO: remove this when good
-        # uncomment this if you want to check how it looks
+        # uncomment this if you want to check how one window looks
+        # print(f'seq_idx_range: {vid.sequence_idx[seq_idx]}, seq_idx: {seq_idx}')
+        # for d in range(seg_masks.shape[1]):
+        #     m = seg_masks[:,d]
+        #     # pdb.set_trace()
+        #     cv2.imshow('asdf', (m*255).cpu().numpy().astype(np.uint8).transpose(1,2,0))
+        #     cv2.waitKey(10)
+        # cv2.waitKey(0)
+        # Or this if you only want to see middle frame
         # middle = (seg_masks[:,seg_masks.shape[1]//2]*255).cpu().numpy().astype(np.uint8).transpose(1,2,0)
-        # # # print(f'{middle.shape=}')
+        # # print(f'{middle.shape=}')
         # print(f'{seq_idx=}', end='\r')
         # cv2.imshow('asdf', middle)
         # cv2.waitKey(0)
 
         label = vid.next_points[seq_idx]
-        flip = random.uniform(0,1) < self.flip
-        if flip:
-            seg_masks = torchvision.transforms.functional.hflip(seg_masks)
-            label = 1 - label
 
         return seg_masks, label
 

@@ -5,6 +5,7 @@ import pdb
 import torch
 from torch.optim import SGD
 import torchvision
+import numpy as np
 
 from data import data_loader, dataset, data_config
 # from network import TestNet
@@ -20,6 +21,7 @@ def parse_arguments():
     parser.add_argument('--lr-patience', default=6, type=int)
     parser.add_argument('--lr-factor', default=3, type=float)
     parser.add_argument('--lr-min', default=1e-4, type=float)
+    parser.add_argument('--validation', default=0.1, type=float)
     parser.add_argument('--weight-decay', default=0.0002, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--nepochs', type=int, default=100)
@@ -29,7 +31,7 @@ def parse_arguments():
     parser.add_argument('--data-config', type=str, default='base')
     parser.add_argument('--src-fps', type=int, default=120)
     parser.add_argument('--target-fps', type=int, default=30)
-    parser.add_argument('--labeled-start', action='store_true', default=True)
+    parser.add_argument('--labeled-start', action='store_true', default=False)
     parser.add_argument('--window-size', type=int, default=7)
     parser.add_argument('--gpu', type=int, default='0')
     parser.add_argument('--freeze-backbone', default=False, action='store_true')
@@ -55,6 +57,10 @@ def main():
     else:
         device = 'cuda'
         torch.cuda.device(args.gpu)
+
+    # seed
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
 
     # data-config
     data_conf = data_config.data_config[args.data_config]
@@ -83,7 +89,7 @@ def main():
             if hasattr(l, 'bias') and l.bias is not None:
                 l.bias.requires_grad = False
 
-    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=0.1)
+    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=args.validation)
     
     # optimizer
     train_params = [p for p in model.parameters() if p.requires_grad]

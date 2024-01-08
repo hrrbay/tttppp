@@ -13,8 +13,7 @@ data_config = {
         'path': os.path.join(BASE_PATH, 't3p3'),
         'transforms': [
             transforms.Normalize(mean=0.01298, std=0.07275),
-        ],
-        'flip': 0.5,
+        ]
     },
     'r3d_18': {
         'path': os.path.join(BASE_PATH, 't3p3'),

@@ -14,11 +14,12 @@ def train_epoch(trn_loader, model, optim, device):
         loss = criterion(outputs.to(device), targets.to(device))
         # TODO: clipgrad
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 10000)
         optim.step()
-    print()
 
 def eval(loader, model, device):
     with torch.no_grad():
+
         model.eval()
         loss = 0
         acc = 0
@@ -42,19 +43,26 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
     best_model = model.state_dict()
     patience = lr_patience
     t0 = time.time()
+    print(f'{len(trn_loader)=}')
+    if val_loader is None:
+        print(f'* WARNING: val_loader is None. Using trn_loader for validation and early stopping instead.')
     for epoch in range(nepochs):
         # train one epoch
         t = time.time()
         train_epoch(trn_loader, model, optim, device)
 
         # do validation + patience
-        val_loss, val_acc, _, _ = -1, -1, -1, -1
+        val_loss, val_acc = 0, 0
+        if val_loader is not None:
+            val_loss, val_acc, _, _ = eval(val_loader, model, device)
         print(f'Epoch {epoch+1:02d}/{nepochs} ({int(time.time()-t):>3d}s) -- val_loss: {val_loss:0.4f}, val_acc: {val_acc*100:02.2f}% ', end='')
-        trn_loss, trn_acc, _, _ = eval(trn_loader, model, device)
-        print(f'trn_loss: {trn_loss:0.4f}, trn_acc: {trn_acc*100:02.2f} ', end='')
+        if val_loader is None:
+            trn_loss, trn_acc, _, _ = eval(trn_loader, model, device)
+            print(f'trn_loss: {trn_loss:0.4f}, trn_acc: {trn_acc*100:02.2f} ', end='')
+            val_loss = trn_loss
         lr = optim.param_groups[0]['lr']
-        if trn_loss < best_loss or epoch == 0:
-            best_loss = trn_loss
+        if val_loss < best_loss or epoch == 0:
+            best_loss = val_loss
             best_model = model.state_dict()
             patience = lr_patience
             print(f' * best_loss: {best_loss:.4f}', end='') # new best model 
