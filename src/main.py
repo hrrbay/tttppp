@@ -9,6 +9,7 @@ from torch.optim import SGD
 from torch.utils.tensorboard import SummaryWriter
 
 import torchvision
+import numpy as np
 
 from data import data_loader, dataset, data_config
 # from network import TestNet
@@ -26,6 +27,7 @@ def parse_arguments():
     parser.add_argument('--lr-patience', default=6, type=int)
     parser.add_argument('--lr-factor', default=3, type=float)
     parser.add_argument('--lr-min', default=1e-4, type=float)
+    parser.add_argument('--validation', default=0.1, type=float)
     parser.add_argument('--weight-decay', default=0.0002, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--nepochs', type=int, default=100)
@@ -42,6 +44,8 @@ def parse_arguments():
     parser.add_argument('--train-config', type=str, default=None)
     parser.add_argument('--has-checkpoint', type=bool, default=False)
     parser.add_argument('--checkpoint-freq', type=int, default=5)
+    parser.add_argument('--freeze-backbone', default=False, action='store_true')
+    parser.add_argument('--model-name', default='model', type=str, required=False)
     return parser.parse_args()
 
 
@@ -66,6 +70,10 @@ def main():
         device = 'cuda'
         torch.cuda.device(args.gpu)
 
+    # seed
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+
     # data-config
     data_conf = data_config.data_config[args.data_config]
     transforms = data_conf['transforms']
@@ -82,9 +90,18 @@ def main():
         assert type(head_var) == torch.nn.Linear, 'Fix this.'
         setattr(model, head_name, torch.nn.Linear(in_features=head_var.in_features, out_features=1))
     # TODO: add other models here if needed
-    
     model.to(device)
-    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=0.1)
+
+    if args.freeze_backbone:
+        layers = list(model.modules())[1:-1]
+        for l in layers:
+            print(f'freezing {l}')
+            if hasattr(l, 'weight'):
+                l.weight.requires_grad = False
+            if hasattr(l, 'bias') and l.bias is not None:
+                l.bias.requires_grad = False
+
+    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=args.validation)
     
     # init logging w/ tensorboard
     run_id = f'{args.network}_{args.lr}' #we need some naming scheme
@@ -95,7 +112,12 @@ def main():
     summary_writer = SummaryWriter(f'../runs/{run_id}/logs')
     
     # optimizer
-    optim = SGD(params=[p for p in model.parameters() if p.requires_grad], lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    train_params = [p for p in model.parameters() if p.requires_grad]
+    print(f'training {len(train_params)} params')
+    optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device, summary_writer, args.has_checkpoint, args.checkpoint_freq)
+
+    # save model
+    # torch.save(model.state_dict(), f'./models/{args.model_name}.ckpt')
 if __name__ == '__main__':
     main()

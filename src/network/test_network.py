@@ -6,7 +6,7 @@ class TestNet(torch.nn.Module):
         super().__init__()
         self.conv1 = torch.nn.Conv3d(1, 1, 2, 3)
         self.conv2 = torch.nn.Conv3d(1, 1, 2, 3)
-        self.conv3 = torch.nn.Conv3d(1,1,1,3)
+        self.conv3 = torch.nn.Conv3d(1, 1, 1, 3)
         self.fc1 = torch.nn.Linear(5*12, 1)
 
     def forward(self, x):
