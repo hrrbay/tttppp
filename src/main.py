@@ -113,7 +113,7 @@ def main():
     
     # optimizer
     train_params = [p for p in model.parameters() if p.requires_grad]
-    print(f'training {len(train_params)} params')
+    print(f'training {sum([p.numel() for p in train_params])} params')
     optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device, summary_writer, args.has_checkpoint, args.checkpoint_freq)
 
