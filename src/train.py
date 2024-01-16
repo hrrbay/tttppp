@@ -148,7 +148,7 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
     
     print('Evaluating on test set...')
     tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
-    summary_writer.add_scaler('acc/tst', tst_acc, epoch)
+    summary_writer.add_scalar('acc/tst', tst_acc, epoch)
     summary_writer.flush()
     summary_writer.close()
     print('-' * 80)

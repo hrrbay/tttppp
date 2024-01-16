@@ -51,6 +51,7 @@ def parse_arguments():
     parser.add_argument('--freeze-backbone', default=False, action='store_true')
     parser.add_argument('--model-name', default='model', type=str, required=False)
     parser.add_argument('--fixed-seq-len', default=0, type=int, required=False)
+    parser.add_argument('--test-model', default=None, type=str, required=False)
     return parser.parse_args()
 
 
@@ -108,6 +109,18 @@ def main():
 
     trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=args.validation, fixed_seq_len=args.fixed_seq_len, flip_prob=args.flip_prob, validation_vid=args.validation_vid)
     
+    if args.test_model:
+        best_model = torch.load(args.test_model)
+        model.load_state_dict(best_model['model_state_dict'])
+        loss, acc, _, _ = train.eval(tst_loader, model, device)
+        print(f'tst_loss: {loss:.4f}, tst_acc: {acc*100:.2f}%')
+        loss, acc, _, _ = train.eval(trn_loader, model, device)
+        print(f'trn_loss: {loss:.4f}, trn_acc: {acc*100:.2f}%')
+        loss, acc, _, _ = train.eval(val_loader, model, device)
+        print(f'val_loss: {loss:.4f}, val_acc: {acc*100:.2f}%')
+        exit(0)
+
+
     # init logging w/ tensorboard
     exp_name = args.exp_name
     if exp_name is None:
