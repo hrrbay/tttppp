@@ -3,9 +3,10 @@ import importlib
 import pdb
 import os
 import time
+from datetime import datetime
 
 import torch
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 from torch.utils.tensorboard import SummaryWriter
 
 import torchvision
@@ -46,6 +47,8 @@ def parse_arguments():
     parser.add_argument('--checkpoint-freq', type=int, default=5)
     parser.add_argument('--freeze-backbone', default=False, action='store_true')
     parser.add_argument('--model-name', default='model', type=str, required=False)
+    parser.add_argument('--fixed-seq-len', default=0, type=int, required=False)
+    parser.add_argument('--exp-name', default=None, type=str, required=False)
     return parser.parse_args()
 
 
@@ -101,20 +104,27 @@ def main():
             if hasattr(l, 'bias') and l.bias is not None:
                 l.bias.requires_grad = False
 
-    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=args.validation)
+    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=args.validation, fixed_seq_len=args.fixed_seq_len)
     
     # init logging w/ tensorboard
-    run_id = f'{args.network}_{args.lr}' #we need some naming scheme
-    if not os.path.exists(f'../runs/{run_id}'):
-        os.makedirs(f'../runs/{run_id}')
-        os.makedirs(f'../runs/{run_id}/logs')
-        os.makedirs(f'../runs/{run_id}/model')
-    summary_writer = SummaryWriter(f'../runs/{run_id}/logs')
+    exp_name = args.exp_name
+    if exp_name is None:
+        exp_name = f'{args.network}_{args.lr}'
+    run_dir = os.path.join(os.path.dirname(__file__), '..', 'runs')
+    print(f'run_dir: {run_dir}')
+    run_id = f'{exp_name}/{args.seed}' #we need some naming scheme
+    if not os.path.exists(f'{run_dir}/{run_id}'):
+        os.makedirs(f'{run_dir}/{run_id}')
+        os.makedirs(f'{run_dir}/{run_id}/logs')
+        os.makedirs(f'{run_dir}/{run_id}/model')
+    summary_writer = SummaryWriter(f'{run_dir}/{run_id}/logs')
     
     # optimizer
     train_params = [p for p in model.parameters() if p.requires_grad]
     print(f'training {sum([p.numel() for p in train_params])} params')
-    optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
+    # optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    optim = Adam(params=train_params, lr=args.lr)
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device, summary_writer, args.has_checkpoint, args.checkpoint_freq)
 
     # save model

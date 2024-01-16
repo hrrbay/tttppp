@@ -118,7 +118,7 @@ class TTVid():
         data = data[0::downscale]
         return data
 
-    def __init__(self, path, src_fps, target_fps, labeled_start=False, window_size=30):
+    def __init__(self, path, src_fps, target_fps, labeled_start=False, window_size=30, fixed_seq_len=0):
         self.path = path
         self.src_fps = src_fps
         self.target_fps = target_fps
@@ -142,6 +142,8 @@ class TTVid():
                     start = 0
                 else:
                     start = self.point_labels[i - 1][1] + 1 # maybe use different offset
+                if fixed_seq_len > 0:
+                    start = end - fixed_seq_len if end - fixed_seq_len >= 0 else start
             else:
                 # (not-)dead frames are labeled
                 self.serve_labels = np.loadtxt(os.path.join(path, 'serve_labels.txt')).astype(int)

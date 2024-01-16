@@ -11,6 +11,7 @@ def criterion(outputs, targets):
 def train_epoch(trn_loader, model, optim, device):
     model.train()
     loss_hist = []
+    grad_hist = []
     for i,(masks, targets) in enumerate(tqdm(trn_loader)):
         outputs = model(masks.to(device))
         optim.zero_grad()
@@ -18,10 +19,17 @@ def train_epoch(trn_loader, model, optim, device):
         loss_hist.append(loss.item())
         # TODO: clipgrad
         loss.backward()
+        grads = [
+            param.grad.detach().flatten()
+            for param in model.parameters()
+            if param.grad is not None
+        ]
+        norm = torch.cat(grads).norm()
+        grad_hist.append(norm.item())
         optim.step()
         
     # training accuracy as well?
-    return loss_hist
+    return loss_hist, grad_hist
 
 def eval(loader, model, device):
     with torch.no_grad():
@@ -66,7 +74,7 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
     for epoch in range(start_epoch,nepochs):
         # train one epoch
         t = time.time()
-        training_loss_hist = train_epoch(trn_loader, model, optim, device)
+        training_loss_hist, training_grad_hist = train_epoch(trn_loader, model, optim, device)
         
         # do validation + patience
         val_loss, val_acc = 0,0#eval(val_loader, model, device)
@@ -91,7 +99,6 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
             best_loss = val_loss
             best_model = model.state_dict()
             patience = lr_patience
-            print(f'Wow, new best model! Saving...')
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': best_model,
@@ -112,10 +119,12 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
         print()
         for batch, training_loss in enumerate(training_loss_hist):
             summary_writer.add_scalar('loss/trn', training_loss, batch + epoch * len(trn_loader))
+        for batch, training_grad in enumerate(training_grad_hist):
+            summary_writer.add_scalar('grad_norm/trn', training_grad, batch + epoch * len(trn_loader))
+
         summary_writer.add_scalar('loss/val', val_loss, epoch)
         summary_writer.add_scalar('acc/val', val_acc, epoch)
         summary_writer.flush()
-        print(f'Done writing to tensorboard')
         
         if lr < lr_min:
             break
