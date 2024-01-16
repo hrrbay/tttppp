@@ -61,6 +61,10 @@ def main():
     if args.train_config is not None:
         args = config.utils.update_args(args, args.train_config)  # update args with train config file
 
+    print(f'Arguments:')
+    for arg, val in vars(args).items():
+        print(f'\t{arg}: {val}')
+    print('-' * 80)
     # set device
     if args.gpu < 0:
         print(f'* GPU < 0. Will use CPU instead.')
