@@ -22,6 +22,7 @@ import config.utils
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--exp-name', default=None, type=str, required=False)
     parser.add_argument('--network', type=str, default='TestNet')
     parser.add_argument('--pretrained', action='store_true', default=False)
     parser.add_argument('--lr', default=0.01, type=float)
@@ -29,6 +30,8 @@ def parse_arguments():
     parser.add_argument('--lr-factor', default=3, type=float)
     parser.add_argument('--lr-min', default=1e-4, type=float)
     parser.add_argument('--validation', default=0.1, type=float)
+    parser.add_argument('--validation-vid', default=None, type=int)
+    parser.add_argument('--flip-prob', default=0, type=float, required=False)
     parser.add_argument('--weight-decay', default=0.0002, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--nepochs', type=int, default=100)
@@ -48,7 +51,6 @@ def parse_arguments():
     parser.add_argument('--freeze-backbone', default=False, action='store_true')
     parser.add_argument('--model-name', default='model', type=str, required=False)
     parser.add_argument('--fixed-seq-len', default=0, type=int, required=False)
-    parser.add_argument('--exp-name', default=None, type=str, required=False)
     return parser.parse_args()
 
 
@@ -104,7 +106,7 @@ def main():
             if hasattr(l, 'bias') and l.bias is not None:
                 l.bias.requires_grad = False
 
-    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=args.validation, fixed_seq_len=args.fixed_seq_len)
+    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=args.validation, fixed_seq_len=args.fixed_seq_len, flip_prob=args.flip_prob, validation_vid=args.validation_vid)
     
     # init logging w/ tensorboard
     exp_name = args.exp_name
@@ -113,6 +115,7 @@ def main():
     run_dir = os.path.join(os.path.dirname(__file__), '..', 'runs')
     print(f'run_dir: {run_dir}')
     run_id = f'{exp_name}/{args.seed}' #we need some naming scheme
+    print(f'saving to: {run_dir}/{run_id}')
     if not os.path.exists(f'{run_dir}/{run_id}'):
         os.makedirs(f'{run_dir}/{run_id}')
         os.makedirs(f'{run_dir}/{run_id}/logs')
@@ -123,8 +126,8 @@ def main():
     train_params = [p for p in model.parameters() if p.requires_grad]
     print(f'training {sum([p.numel() for p in train_params])} params')
 
-    # optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-    optim = Adam(params=train_params, lr=args.lr)
+    optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    # optim = Adam(params=train_params, lr=args.lr)
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device, summary_writer, args.has_checkpoint, args.checkpoint_freq)
 
     # save model

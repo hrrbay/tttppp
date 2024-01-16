@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import pdb
 import os
 import time
@@ -12,6 +13,8 @@ def train_epoch(trn_loader, model, optim, device):
     model.train()
     loss_hist = []
     grad_hist = []
+    avg_loss = []
+    avg_grad = []
     for i,(masks, targets) in enumerate(tqdm(trn_loader)):
         outputs = model(masks.to(device))
         optim.zero_grad()
@@ -19,6 +22,7 @@ def train_epoch(trn_loader, model, optim, device):
         loss_hist.append(loss.item())
         # TODO: clipgrad
         loss.backward()
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 2)
         grads = [
             param.grad.detach().flatten()
             for param in model.parameters()
@@ -29,7 +33,7 @@ def train_epoch(trn_loader, model, optim, device):
         optim.step()
         
     # training accuracy as well?
-    return loss_hist, grad_hist
+    return loss_hist, grad_hist, np.sum(loss_hist) / len(trn_loader),  np.sum(grad_hist) / len(trn_loader)
 
 def eval(loader, model, device):
     with torch.no_grad():
@@ -42,6 +46,7 @@ def eval(loader, model, device):
         for masks, targets in loader:
             outputs = model(masks.to(device))
             loss += criterion(outputs.to(device), targets.to(device)).item() * len(targets)
+            # print(loss)
             probs = torch.nn.functional.sigmoid(outputs)
             preds = probs > 0.5
             all_preds.extend(preds.tolist())
@@ -74,7 +79,7 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
     for epoch in range(start_epoch,nepochs):
         # train one epoch
         t = time.time()
-        training_loss_hist, training_grad_hist = train_epoch(trn_loader, model, optim, device)
+        training_loss_hist, training_grad_hist, avg_trn_loss, avg_trn_grad = train_epoch(trn_loader, model, optim, device)
         
         # do validation + patience
         val_loss, val_acc = 0,0#eval(val_loader, model, device)
@@ -86,14 +91,19 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
                 'loss': val_loss,
                 }, os.path.join(run_dir, 'model', 'checkpoint.pth'))
         
+        print(f'\tEpoch {epoch+1:02d}/{nepochs} ({int(time.time()-t):>3d}s) --  ', end='')
         val_loss, val_acc = 0, 0
         if val_loader is not None:
             val_loss, val_acc, _, _ = eval(val_loader, model, device)
-        print(f'Epoch {epoch+1:02d}/{nepochs} ({int(time.time()-t):>3d}s) -- val_loss: {val_loss:0.4f}, val_acc: {val_acc*100:02.2f}% | ', end='')
+            print(f'val_loss: {val_loss:0.4f}, val_acc: {val_acc*100:02.2f}% | ', end='')
         if val_loader is None:
             trn_loss, trn_acc, _, _ = eval(trn_loader, model, device)
-            print(f'trn_loss: {trn_loss:0.4f}, trn_acc: {trn_acc*100:02.2f} ', end='')
+            print(f'trn_loss: {trn_loss:0.4f}, trn_acc: {trn_acc*100:02.2f} | ', end='')
             val_loss = trn_loss
+        
+        # tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
+        # print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:.2f} | ', end='')
+        
         lr = optim.param_groups[0]['lr']
         if val_loss < best_loss or epoch == 0:
             best_loss = val_loss
@@ -116,11 +126,17 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
                 patience = lr_patience
                 print(f' LR: {lr:.2e}', end='')
                 model.load_state_dict(best_model)
+
         print()
-        for batch, training_loss in enumerate(training_loss_hist):
-            summary_writer.add_scalar('loss/trn', training_loss, batch + epoch * len(trn_loader))
-        for batch, training_grad in enumerate(training_grad_hist):
-            summary_writer.add_scalar('grad_norm/trn', training_grad, batch + epoch * len(trn_loader))
+        # for batch, training_loss in enumerate(training_loss_hist):
+        #     summary_writer.add_scalar('loss/trn_per_batch', training_loss, batch + epoch * len(trn_loader))
+        # for batch, training_grad in enumerate(training_grad_hist):
+        #     summary_writer.add_scalar('grad_norm/trn_per_patch', training_grad, batch + epoch * len(trn_loader))
+
+        summary_writer.add_scalar('loss/trn_avg', avg_trn_loss, epoch);
+        # summary_writer.add_scalar('loss/tst', tst_loss, epoch);
+        # summary_writer.add_scalar('acc/tst', tst_acc, epoch);
+        summary_writer.add_scalar('grad_norm/trn_avg', avg_trn_grad, epoch);
 
         summary_writer.add_scalar('loss/val', val_loss, epoch)
         summary_writer.add_scalar('acc/val', val_acc, epoch)
@@ -128,11 +144,13 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
         
         if lr < lr_min:
             break
-    summary_writer.close()
     model.load_state_dict(best_model)
     
     print('Evaluating on test set...')
     tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
+    summary_writer.add_scaler('acc/tst', tst_acc, epoch)
+    summary_writer.flush()
+    summary_writer.close()
     print('-' * 80)
     print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:02.2f}%')
     print(f'Total time trained: {(time.time() - t0)/3600:.2f}h')

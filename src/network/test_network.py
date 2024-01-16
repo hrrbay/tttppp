@@ -11,8 +11,11 @@ class TestNet(torch.nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
+        x = torch.nn.functional.relu(x)
         x = self.conv2(x)
+        x = torch.nn.functional.relu(x)
         x = self.conv3(x)
+        x = torch.nn.functional.relu(x)
         x = torch.flatten(x, start_dim=1)
         x = self.fc1(x)
         return x
