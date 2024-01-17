@@ -4,6 +4,7 @@ import pdb
 import os
 import time
 from tqdm import tqdm
+from data import dataset
 from torch.utils.tensorboard import SummaryWriter
 
 def criterion(outputs, targets):
@@ -15,7 +16,7 @@ def train_epoch(trn_loader, model, optim, device):
     grad_hist = []
     avg_loss = []
     avg_grad = []
-    for i,(masks, targets) in enumerate(tqdm(trn_loader)):
+    for i,(masks, targets) in enumerate(tqdm(trn_loader, dynamic_ncols=True)):
         outputs = model(masks.to(device))
         optim.zero_grad()
         loss = criterion(outputs.to(device), targets.to(device))
@@ -56,6 +57,19 @@ def eval(loader, model, device):
         loss /= len(loader.dataset)
         acc /= len(loader.dataset)
         return loss, acc, all_preds, all_targets
+
+def eval_split(loader, model, device):
+    vid_accs = {}
+    with torch.no_grad():
+        model.eval()
+        ds = loader.dataset
+        for vid in ds.vids:
+            name = os.path.basename(vid.path)
+            vid_ds = dataset.TTData([vid], ds.win_size, transforms=ds.transforms.transforms, flip_prob=ds.flip_prob)
+            vid_loader = torch.utils.data.DataLoader(vid_ds, batch_size=loader.batch_size, shuffle=False, num_workers=loader.num_workers)
+            acc, loss, preds, targets = eval(vid_loader, model, device)
+            vid_accs[name] = {'acc': acc, 'loss': loss, 'preds': preds, 'targets': targets}
+    return vid_accs
 
 def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience, lr_factor, lr_min, device, summary_writer, has_checkpoint=False, checkpoint_freq=5):
     best_loss = 0
@@ -101,8 +115,8 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
             print(f'trn_loss: {trn_loss:0.4f}, trn_acc: {trn_acc*100:02.2f} | ', end='')
             val_loss = trn_loss
         
-        # tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
-        # print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:.2f} | ', end='')
+        tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
+        print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:.2f} | ', end='')
         
         lr = optim.param_groups[0]['lr']
         if val_loss < best_loss or epoch == 0:
@@ -128,15 +142,29 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
                 model.load_state_dict(best_model)
 
         print()
+        vid_accs = eval_split(tst_loader, model, device)
+        breakpoint()
         # for batch, training_loss in enumerate(training_loss_hist):
         #     summary_writer.add_scalar('loss/trn_per_batch', training_loss, batch + epoch * len(trn_loader))
         # for batch, training_grad in enumerate(training_grad_hist):
         #     summary_writer.add_scalar('grad_norm/trn_per_patch', training_grad, batch + epoch * len(trn_loader))
 
         summary_writer.add_scalar('loss/trn_avg', avg_trn_loss, epoch);
-        # summary_writer.add_scalar('loss/tst', tst_loss, epoch);
-        # summary_writer.add_scalar('acc/tst', tst_acc, epoch);
+        summary_writer.add_scalar('loss/tst', tst_loss, epoch);
+        summary_writer.add_scalar('acc/tst', tst_acc, epoch);
         summary_writer.add_scalar('grad_norm/trn_avg', avg_trn_grad, epoch);
+
+        for vid in vid_accs:
+            summary_writer.add_scalar(f'{vid}/acc', vid_accs[vid]['acc'])
+            summary_writer.add_scalar(f'{vid}/loss', vid_accs[vid]['loss'])
+            for i, pred in enumerate(vid_accs[vid]['preds']):
+                summary_writer.add_scalars(f'{vid}/preds', {
+                    'pred': 1 if pred[0] else 0,
+                    'target': vid_accs[vid]['targets'][i][0]
+                }, i)
+                # summary_writer.add_scalar(f'{vid}/preds', 1 if pred[0] else 0, i)
+                # summary_writer.add_scalar(f'{vid}/targets', vid_accs[vid]['targets'][i][0], i)
+
 
         summary_writer.add_scalar('loss/val', val_loss, epoch)
         summary_writer.add_scalar('acc/val', val_acc, epoch)

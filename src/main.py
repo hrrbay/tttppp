@@ -3,6 +3,7 @@ import importlib
 import pdb
 import os
 import time
+import json
 from datetime import datetime
 
 import torch
@@ -138,13 +139,16 @@ def main():
         os.makedirs(f'{run_dir}/{run_id}/logs')
         os.makedirs(f'{run_dir}/{run_id}/model')
     summary_writer = SummaryWriter(f'{run_dir}/{run_id}/logs')
-    
+    # store arguments
+    with open(os.path.join(run_dir, run_id, 'args.json'), 'w') as f:
+        json.dump(vars(args), f, sort_keys=True, indent=4)
+
     # optimizer
     train_params = [p for p in model.parameters() if p.requires_grad]
     print(f'training {sum([p.numel() for p in train_params])} params')
 
-    optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-    # optim = Adam(params=train_params, lr=args.lr)
+    # optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    optim = Adam(params=train_params, lr=args.lr)
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device, summary_writer, args.has_checkpoint, args.checkpoint_freq)
 
     # save model

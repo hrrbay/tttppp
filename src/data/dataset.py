@@ -136,7 +136,7 @@ class TTData(Dataset):
             flipped[flipped_tmp == val_left + ball_add] = val_right + ball_add
             flipped[flipped_tmp == val_right + ball_add] = val_left + ball_add
             seg_masks = flipped
-            
+
             # TODO: I'll leave this here for the report maybe?
             # import matplotlib.pyplot as plt
             # fig, axs = plt.subplots(3, 1)

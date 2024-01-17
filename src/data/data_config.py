@@ -20,7 +20,7 @@ data_config = {
     'r3d_18': {
         'path': os.path.join(BASE_PATH, 't3p3'),
         'transforms': [
-            transforms.Normalize(mean=0.01298, std=0.07275),
+            transforms.Normalize(mean=0.012362, std=0.076184),
             transforms.Resize((112,112)),
             transforms.Lambda(lambda x: x.repeat(3, 1, 1)) # TODO: Check this does the correct thing (repeating channel)
         ]
