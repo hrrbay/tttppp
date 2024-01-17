@@ -127,8 +127,8 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
             print(f'trn_loss: {trn_loss:0.4f}, trn_acc: {trn_acc*100:02.2f} | ', end='')
             val_loss = trn_loss
         
-        tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
-        print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:.2f} | ', end='')
+        # tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
+        # print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:.2f} | ', end='')
         
         lr = optim.param_groups[0]['lr']
         if val_loss < best_loss or epoch == 0:
@@ -160,8 +160,8 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
         #     summary_writer.add_scalar('grad_norm/trn_per_patch', training_grad, batch + epoch * len(trn_loader))
 
         summary_writer.add_scalar('loss/trn_avg', avg_trn_loss, epoch);
-        summary_writer.add_scalar('loss/tst', tst_loss, epoch);
-        summary_writer.add_scalar('acc/tst', tst_acc, epoch);
+        # summary_writer.add_scalar('loss/tst', tst_loss, epoch);
+        # summary_writer.add_scalar('acc/tst', tst_acc, epoch);
         summary_writer.add_scalar('grad_norm/trn_avg', avg_trn_grad, epoch);
 
         
