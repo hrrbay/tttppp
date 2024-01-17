@@ -78,7 +78,7 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
     if val_dirs:
         val_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len) for d in val_dirs]
         val_ds = TTData(val_vids, window_size, transforms=transforms)
-        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         print(f'{len(val_loader)=}')
 
     if validation > 0 and not validation_vid:
@@ -90,7 +90,7 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         print(f'{len(val_loader)=}')
     
-    tst_loader = DataLoader(tst_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    tst_loader = DataLoader(tst_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     trn_loader = DataLoader(trn_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
     print(f'{len(trn_loader)=}')
