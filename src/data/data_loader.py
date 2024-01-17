@@ -83,8 +83,8 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
     if validation > 0 and not validation_vid:
         # no validation vid specified --> random split
         assert validation <= 1
-        trn_ds, val_ds = random_split(trn_ds, [1-validation, validation], generator=torch.Generator().manual_seed(seed))
-        # trn_ds, val_ds = custom_random_split(trn_ds, val_split=validation, seed=seed)
+        # trn_ds, val_ds = random_split(trn_ds, [1-validation, validation], generator=torch.Generator().manual_seed(seed))
+        trn_ds, val_ds = custom_random_split(trn_ds, val_split=validation, seed=seed)
         print(f'Loaded {len(trn_ds)} training samples and {len(val_ds)} validation samples.')
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         print(f'{len(val_loader)=}')

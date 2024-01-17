@@ -92,8 +92,6 @@ class TTData(Dataset):
         self.wins_per_vid = [vid.num_wins for vid in self.vids]
         self.transforms = Compose(transforms)
         self.flip_prob = flip_prob
-        print(f'{self.transforms=}')
-        print(f'Dataset created. Total number of windows: {sum(v.num_wins for v in self.vids)}')
 
     def __len__(self):
         return sum(wins for wins in self.wins_per_vid) # num of sliding windows over all sequences of all videos

@@ -52,13 +52,12 @@ def eval(loader, model, device):
             preds = probs > 0.5
             all_preds.extend(preds.tolist())
             all_targets.extend(targets.tolist())
-            # preds = outputs.argmax(dim=1)
             acc += (preds == targets.to(device)).sum().item()
         loss /= len(loader.dataset)
         acc /= len(loader.dataset)
         return loss, acc, all_preds, all_targets
 
-def eval_split(loader, model, device):
+def eval_test_split(loader, model, device):
     vid_accs = {}
     with torch.no_grad():
         model.eval()
@@ -67,10 +66,22 @@ def eval_split(loader, model, device):
             name = os.path.basename(vid.path)
             vid_ds = dataset.TTData([vid], ds.win_size, transforms=ds.transforms.transforms, flip_prob=ds.flip_prob)
             vid_loader = torch.utils.data.DataLoader(vid_ds, batch_size=loader.batch_size, shuffle=False, num_workers=loader.num_workers)
-            acc, loss, preds, targets = eval(vid_loader, model, device)
+            loss, acc, preds, targets = eval(vid_loader, model, device)
             vid_accs[name] = {'acc': acc, 'loss': loss, 'preds': preds, 'targets': targets}
+
+    for vid in vid_accs:
+        acc = vid_accs[vid]['acc']
+        loss = vid_accs[vid]['loss']
+        preds = vid_accs[vid]['preds']
+        targets = vid_accs[vid]['targets']
+        print(f'{vid} -- loss: {loss:0.4f}, acc: {acc*100:02.2f}, len: {len(vid_accs[vid]["preds"])}')
+
+    tst_loss, tst_acc, _, _ = eval(loader, model, device)
+    print(f'All test -- loss {tst_loss:0.4f}, acc: {tst_acc*100:02.2f}')
+
     return vid_accs
 
+    
 def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience, lr_factor, lr_min, device, summary_writer, has_checkpoint=False, checkpoint_freq=5):
     best_loss = 0
     best_model = model.state_dict()
@@ -142,8 +153,6 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
                 model.load_state_dict(best_model)
 
         print()
-        vid_accs = eval_split(tst_loader, model, device)
-        breakpoint()
         # for batch, training_loss in enumerate(training_loss_hist):
         #     summary_writer.add_scalar('loss/trn_per_batch', training_loss, batch + epoch * len(trn_loader))
         # for batch, training_grad in enumerate(training_grad_hist):
@@ -154,16 +163,9 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
         summary_writer.add_scalar('acc/tst', tst_acc, epoch);
         summary_writer.add_scalar('grad_norm/trn_avg', avg_trn_grad, epoch);
 
-        for vid in vid_accs:
-            summary_writer.add_scalar(f'{vid}/acc', vid_accs[vid]['acc'])
-            summary_writer.add_scalar(f'{vid}/loss', vid_accs[vid]['loss'])
-            for i, pred in enumerate(vid_accs[vid]['preds']):
-                summary_writer.add_scalars(f'{vid}/preds', {
-                    'pred': 1 if pred[0] else 0,
-                    'target': vid_accs[vid]['targets'][i][0]
-                }, i)
-                # summary_writer.add_scalar(f'{vid}/preds', 1 if pred[0] else 0, i)
-                # summary_writer.add_scalar(f'{vid}/targets', vid_accs[vid]['targets'][i][0], i)
+        
+        # summary_writer.add_scalar(f'{vid}/preds', 1 if pred[0] else 0, i)
+        # summary_writer.add_scalar(f'{vid}/targets', vid_accs[vid]['targets'][i][0], i)
 
 
         summary_writer.add_scalar('loss/val', val_loss, epoch)
@@ -174,12 +176,23 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
             break
     model.load_state_dict(best_model)
     
+
     print('Evaluating on test set...')
+    vid_accs = eval_test_split(tst_loader, model, device)
+    for vid in vid_accs:
+            summary_writer.add_scalar(f'{vid}/acc', vid_accs[vid]['acc'])
+            summary_writer.add_scalar(f'{vid}/loss', vid_accs[vid]['loss'])
+            for i, pred in enumerate(vid_accs[vid]['preds']):
+                summary_writer.add_scalars(f'{vid}/preds', {
+                    'pred': 1 if pred[0] else 0,
+                    'target': vid_accs[vid]['targets'][i][0]
+                }, i)
+                
     tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
     summary_writer.add_scalar('acc/tst', tst_acc, epoch)
     summary_writer.flush()
     summary_writer.close()
     print('-' * 80)
-    print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:02.2f}%')
+    # print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:02.2f}%')
     print(f'Total time trained: {(time.time() - t0)/3600:.2f}h')
     
