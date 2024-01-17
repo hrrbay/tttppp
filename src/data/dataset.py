@@ -46,6 +46,10 @@ class TTVid():
             for frame in ball_pos_dict.keys():
                 ball_pos[int(frame) - 5] = np.array(ball_pos_dict[frame])
 
+            # normalize ball pos
+            ball_pos[:, 0] = ball_pos[:, 0] / 1920
+            ball_pos[:, 1] = ball_pos[:, 1] / 1080
+
             # concat ball pos to poses
             self.poses = np.concatenate((self.poses, np.expand_dims(ball_pos, 1)), axis=1)
 
