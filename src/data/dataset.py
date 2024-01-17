@@ -14,6 +14,7 @@ import argparse
 import psutil
 import random
 import torchvision
+import json
 
 from torchvision.transforms.v2 import ToTensor, Normalize, RandomHorizontalFlip, Compose
 from PIL import Image
@@ -23,13 +24,31 @@ class TTVid():
         data = data[0::downscale]
         return data
 
-    def __init__(self, path, src_fps, target_fps, labeled_start=False, window_size=30, fixed_seq_len=0):
+    def __init__(self, path, src_fps, target_fps, labeled_start=False, window_size=30, fixed_seq_len=0, use_poses=False):
         self.path = path
         self.src_fps = src_fps
         self.target_fps = target_fps
 
         # seg-masks are stored and compressed using zarr
-        self.seg_masks = np.lib.format.open_memmap(os.path.join(path, 't3p3_masks.npy'))
+        if not use_poses:
+            self.seg_masks = np.lib.format.open_memmap(os.path.join(path, 't3p3_masks.npy'))
+        else:
+            self.poses = np.load(os.path.join(path, 'poses.npy'))  # (N, 2, 17, 2)
+            poses_shape = self.poses.shape
+            self.poses = np.reshape(self.poses, (poses_shape[0], poses_shape[1] * poses_shape[2], poses_shape[3]))  # (N, 34, 2)
+            self.poses = self.poses[4:, :, :]  # remove first 4 frames
+            self.poses = self.poses[:-10, :, :]  # remove last 10 frames
+
+            f = open(os.path.join(path, 'ball_pos.json'))
+            ball_pos_dict = json.load(f)  # (N, 2)
+            ball_pos = np.zeros((len(ball_pos_dict.keys()), 2))
+
+            for frame in ball_pos_dict.keys():
+                ball_pos[int(frame) - 5] = np.array(ball_pos_dict[frame])
+
+            # concat ball pos to poses
+            self.poses = np.concatenate((self.poses, np.expand_dims(ball_pos, 1)), axis=1)
+
 
         # load all frames, create annotations
         # TODO: (!!) offset point labels by 4 (5?) frames as we are missing some frames at the start due to sliding window of ttnet
@@ -62,7 +81,10 @@ class TTVid():
             next_point_player = self.point_labels[i][0]
             self.next_points[i] = next_point_player
             self.sequence_idx.append((start,end))
-            self.sequences.append(self.seg_masks[start:end])
+            if not use_poses:
+                self.sequences.append(self.seg_masks[start:end])
+            else:
+                self.sequences.append(self.poses[start:end])
 
 
         # post-process data

@@ -6,3 +6,4 @@
 
 from .test_network import TestNet
 from .Hiera import HieraB
+from .TableTennisTransformer import TableTennisTransformer

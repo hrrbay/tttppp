@@ -53,6 +53,7 @@ def parse_arguments():
     parser.add_argument('--model-name', default='model', type=str, required=False)
     parser.add_argument('--fixed-seq-len', default=0, type=int, required=False)
     parser.add_argument('--test-model', default=None, type=str, required=False)
+    parser.add_argument('--use-poses', type=bool, default=False)
     return parser.parse_args()
 
 
@@ -78,6 +79,7 @@ def main():
         device = 'cuda'
         torch.cuda.device(0)
     else:
+        print(f'Using GPU {args.gpu}')
         device = 'cuda'
         torch.cuda.device(args.gpu)
 
@@ -100,6 +102,8 @@ def main():
         head_name, head_var = list(model.named_modules())[-1]
         assert type(head_var) == torch.nn.Linear, 'Fix this.'
         setattr(model, head_name, torch.nn.Linear(in_features=head_var.in_features, out_features=1))
+    else:
+        raise NotImplementedError(f'Network {args.network} not implemented.')
     # TODO: add other models here if needed
     model.to(device)
 
@@ -112,7 +116,10 @@ def main():
             if hasattr(l, 'bias') and l.bias is not None:
                 l.bias.requires_grad = False
 
-    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps, args.labeled_start, args.window_size, args.seed, transforms=transforms, validation=args.validation, fixed_seq_len=args.fixed_seq_len, flip_prob=args.flip_prob, validation_vid=args.validation_vid)
+    trn_loader, val_loader, tst_loader = data_loader.load_data(data_path, args.batch_size, args.src_fps, args.target_fps,
+                                                               args.labeled_start, args.window_size, args.seed, transforms=transforms,
+                                                               validation=args.validation, fixed_seq_len=args.fixed_seq_len, flip_prob=args.flip_prob,
+                                                               validation_vid=args.validation_vid, use_poses=args.use_poses)
     
     if args.test_model:
         best_model = torch.load(args.test_model)

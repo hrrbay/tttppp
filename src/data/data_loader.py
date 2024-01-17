@@ -54,9 +54,10 @@ def custom_random_split(dataset, val_split=0.1, seed=0):  # only split on sequen
     return train_ds, val_ds
 
 
-def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_size, seed, validation, fixed_seq_len, flip_prob, validation_vid=None, shuffle=False, transforms=[], num_workers=0):
+def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_size, seed, validation,
+              fixed_seq_len, flip_prob, validation_vid=None, shuffle=False, transforms=[], num_workers=0, use_poses=False):
 
-    # new split 
+    # new split
     tst_vids = ['test_1', 'test_3', 'test_4', 'test_6', 'test_7']
     trn_vids = ['train_1', 'train_2', 'train_3', 'train_4', 'train_5', 'test_2', 'test_5']
 
@@ -69,17 +70,17 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
 
     val_loader = None
     
-    trn_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len) for d in trn_dirs]
-    tst_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len) for d in tst_dirs]
+    trn_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len, use_poses=use_poses) for d in trn_dirs]
+    tst_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len, use_poses=use_poses) for d in tst_dirs]
 
     trn_ds = TTData(trn_vids, window_size, transforms=transforms, flip_prob=flip_prob)
     tst_ds = TTData(tst_vids, window_size, transforms=transforms)
     if val_dirs:
         val_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len) for d in val_dirs]
         val_ds = TTData(val_vids, window_size, transforms=transforms)
-        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         print(f'{len(val_loader)=}')
-    
+
     if validation > 0 and not validation_vid:
         # no validation vid specified --> random split
         assert validation <= 1
@@ -89,7 +90,7 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         print(f'{len(val_loader)=}')
     
-    tst_loader = DataLoader(tst_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    tst_loader = DataLoader(tst_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     trn_loader = DataLoader(trn_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
     print(f'{len(trn_loader)=}')
