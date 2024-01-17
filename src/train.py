@@ -5,6 +5,7 @@ import os
 import time
 from tqdm import tqdm
 from data import dataset
+import copy
 from torch.utils.tensorboard import SummaryWriter
 
 def criterion(outputs, targets):
@@ -132,12 +133,12 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
         lr = optim.param_groups[0]['lr']
         if val_loss < best_loss or epoch == 0:
             best_loss = val_loss
-            best_model = model.state_dict()
+            best_model = copy.deepcopy(model.state_dict())
             patience = lr_patience
             torch.save({
                 'epoch': epoch,
-                'model_state_dict': best_model,
-                'optimizer_state_dict': optim.state_dict(),
+                'model_state_dict': copy.deepcopy(best_model),
+                'optimizer_state_dict': copy.deepcopy(optim.state_dict()),
                 'loss': best_loss,
                 }, os.path.join(run_dir, 'model', 'best_model.pth'))
             print(f' * best_loss: {best_loss:.4f}', end='') # new best model 
@@ -176,7 +177,6 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
             break
     model.load_state_dict(best_model)
     
-
     print('Evaluating on test set...')
     vid_accs = eval_test_split(tst_loader, model, device)
     for vid in vid_accs:
