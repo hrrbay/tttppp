@@ -61,12 +61,12 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
     tst_vids = ['test_1', 'test_3', 'test_4', 'test_6', 'test_7']
     trn_vids = ['train_1', 'train_2', 'train_3', 'train_4', 'train_5', 'test_2', 'test_5']
 
-    tst_dirs = [os.path.join(data_path, d) for d in os.listdir(data_path) if 'test' in d]
+    tst_dirs = [os.path.join(data_path, d) for d in os.listdir(data_path) if d in tst_vids]
     val_dirs = []
     if validation_vid is not None:
         # if specific validation video is specified, use this one instead of random splitting
         val_dirs = [os.path.join(data_path, d) for d in os.listdir(data_path) if 'train' in d and str(validation_vid) in d]
-    trn_dirs = [os.path.join(data_path, d) for d in os.listdir(data_path) if 'train' in d and d not in val_dirs]
+    trn_dirs = [os.path.join(data_path, d) for d in os.listdir(data_path) if d in trn_vids]
 
     val_loader = None
     
