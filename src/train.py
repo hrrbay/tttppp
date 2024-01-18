@@ -64,6 +64,7 @@ def eval_test_split(loader, model, device):
         model.eval()
         ds = loader.dataset
         for vid in ds.vids:
+            print(vid.path)
             name = os.path.basename(vid.path)
             vid_ds = dataset.TTData([vid], ds.win_size, transforms=ds.transforms.transforms, flip_prob=ds.flip_prob)
             vid_loader = torch.utils.data.DataLoader(vid_ds, batch_size=loader.batch_size, shuffle=False, num_workers=loader.num_workers)

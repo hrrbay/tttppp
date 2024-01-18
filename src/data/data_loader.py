@@ -61,7 +61,7 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
     tst_vids = ['test_1', 'test_3', 'test_4', 'test_6', 'test_7']
     trn_vids = ['train_1', 'train_2', 'train_3', 'train_4', 'train_5', 'test_2', 'test_5']
 
-    tst_dirs = [os.path.join(data_path, d) for d in os.listdir(data_path) if d in tst_vids]
+    tst_dirs = [os.path.join(data_path, d) for d in sorted(os.listdir(data_path)) if 'test' in d]
     val_dirs = []
     if validation_vid is not None:
         # if specific validation video is specified, use this one instead of random splitting
@@ -71,7 +71,7 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
     val_loader = None
     
     trn_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len, use_poses=use_poses) for d in trn_dirs]
-    tst_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len, use_poses=use_poses) for d in tst_dirs]
+    tst_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=True, window_size=window_size, fixed_seq_len=0, use_poses=use_poses) for d in tst_dirs]
 
     trn_ds = TTData(trn_vids, window_size, transforms=transforms, flip_prob=flip_prob)
     tst_ds = TTData(tst_vids, window_size, transforms=transforms)

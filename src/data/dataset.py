@@ -159,16 +159,21 @@ class TTData(Dataset):
             flipped[flipped_tmp == ball_add] = ball_add
             flipped[flipped_tmp == val_left + ball_add] = val_right + ball_add
             flipped[flipped_tmp == val_right + ball_add] = val_left + ball_add
-            seg_masks = flipped
-
+            # breakpoint()
             # TODO: I'll leave this here for the report maybe?
             # import matplotlib.pyplot as plt
-            # fig, axs = plt.subplots(3, 1)
+            # fig, axs = plt.subplots(2, 1)
+            # axs[0].set_axis_off()
             # axs[0].imshow(seg_masks[0], cmap='gray', vmin=0, vmax=1)
-            # axs[1].imshow(flipped_tmp[0], cmap='gray', vmin=0, vmax=1)
-            # axs[2].imshow(flipped[0], cmap='gray', vmin=0, vmax=1)
+            # # axs[1].set_axis_off()
+            # # axs[1].imshow(flipped_tmp[0], cmap='gray', vmin=0, vmax=1)
+            # axs[1].set_axis_off()
+            # axs[1].imshow(flipped[0], cmap='gray', vmin=0, vmax=1)
+            # plt.tight_layout()
+            # plt.savefig('/tmp/masks.png')
             # plt.show()
 
+            seg_masks = flipped
             label = 1 - label 
 
         # apply transforms
@@ -203,14 +208,14 @@ def test_load():
     # path = '/mnt/data/datasets/t3p3/annotations/test_2'
     vids = []
     for n in range(5, 6):
-        vids.append(TTVid(f'/home/jakob/datasets/t3p3/train_{n}', 120, 30, labeled_start=True))
+        vids.append(TTVid(f'/mnt/shared/datasets/t3p3/train_{n}', 120, 30, labeled_start=True))
     # path = '/home/jakob/uni/ivu/data/annotations/test_2'
     # path = '/mnt/data/datasets/t3p3/annotations/test_1/'
 
     # vid1 = TTVid(path, 120, 120)
     # vid2 = TTVid(path2, 120, 120)
     print(f'video created')
-    dataset = TTData(vids, transforms=[ToTensor()])
+    dataset = TTData(vids, transforms=[ToTensor()], flip_prob=0.5)
     print(f'ds created')
     loader = DataLoader(dataset, batch_size=64, num_workers=0, shuffle=False)
     print(f'dl created')

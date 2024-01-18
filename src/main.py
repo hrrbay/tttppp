@@ -121,16 +121,38 @@ def main():
                                                                validation=args.validation, fixed_seq_len=args.fixed_seq_len, flip_prob=args.flip_prob,
                                                                validation_vid=args.validation_vid, use_poses=args.use_poses)
     
+    def class_balance(loader):
+        if loader is None:
+            return None
+        num_ones = 0
+        num_zeros = 0
+        for masks, targets in loader:
+            num_ones += targets.sum().item()
+        num_zeros = len(loader.dataset) - num_ones
+        return num_ones, num_zeros, num_ones / num_zeros
+
+    print(f'tst.vids: {tst_loader.dataset.vids}')
+    print(f'tst.wins_per_vid: {tst_loader.dataset.wins_per_vid}')
+    # print(f'win_lens_trn: {win_lens(trn_loader)}')
+    # print(f'trn_balance: {class_balance(trn_loader)}')
+    # print(f'val_balance: {class_balance(val_loader)}')
+    # print(f'tst_balance: {class_balance(tst_loader)}')
     if args.test_model:
         best_model = torch.load(args.test_model)
         model.load_state_dict(best_model['model_state_dict'])
         loss, acc, _, _ = train.eval(tst_loader, model, device)
-        print(f'tst_loss: {loss:.4f}, tst_acc: {acc*100:.2f}%')
-        loss, acc, _, _ = train.eval(trn_loader, model, device)
-        print(f'trn_loss: {loss:.4f}, trn_acc: {acc*100:.2f}%')
-        loss, acc, _, _ = train.eval(val_loader, model, device)
+        # print(f'tst_loss: {loss:.4f}, tst_acc: {acc*100:.2f}%')
+        # loss, acc, _, _ = train.eval(trn_loader, model, device)
+        # print(f'trn_loss: {loss:.4f}, trn_acc: {acc*100:.2f}%')
+        # loss, acc, _, _ = train.eval(val_loader, model, device)
         print(f'val_loss: {loss:.4f}, val_acc: {acc*100:.2f}%')
         vid_accs = train.eval_test_split(tst_loader, model, device)
+        accs = []
+        for vid in sorted(vid_accs.keys()):
+            print(vid)
+            accs.append(vid_accs[vid]['acc'])
+        np.savetxt(f'/tmp/seed_{args.seed}.txt', accs)
+        np.savetxt(f'/tmp/seed_avg_{args.seed}.txt', [acc])
         # print('Evaluating on test set...')
         # vid_accs = train.eval_split(tst_loader, model, device)
         # for vid in vid_accs:
