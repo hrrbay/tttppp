@@ -35,7 +35,7 @@ class TableTennisTransformer(torch.nn.Module):
 
     def forward(self, x):
         # input shape (batch_size, 1, 16, 35, 2)
-        x = x.squeeze()
+        x = x.squeeze()  # (batch_size, 16, 35, 2)
         x = x.transpose(2, 1)  # (batch_size, 35, 16, 2)
         x = x.reshape(x.shape[0], x.shape[1], -1)  # (batch_size, 35, 32)
         shape = x.shape

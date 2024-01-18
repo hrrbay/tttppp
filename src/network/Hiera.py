@@ -19,7 +19,7 @@ class HieraB(torch.nn.Module): # wrapper for hiera base (16x224x224, 51M params)
                 param.requires_grad = False
 
         self.norm = nn.LayerNorm(final_embed_dim, eps=1e-6)  # same head as in the original model, but for binary classification
-        self.head = torch.nn.Linear(final_embed_dim, 1) # TODO maybe second linear layer?
+        self.last = torch.nn.Linear(final_embed_dim, 1) # TODO maybe second linear layer?
         print(f'Number of trainable parameters: {sum(p.numel() for p in self.parameters() if p.requires_grad)}')
 
     def forward(self, x):
@@ -29,5 +29,5 @@ class HieraB(torch.nn.Module): # wrapper for hiera base (16x224x224, 51M params)
         x = x.view(shape[0], -1, shape[4])
         x = x.mean(dim=1)
         x = self.norm(x)
-        x = self.head(x)
+        x = self.last(x)
         return x
