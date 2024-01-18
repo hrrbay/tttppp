@@ -46,7 +46,6 @@ def parse_arguments():
     parser.add_argument('--window-size', type=int, default=7)
     parser.add_argument('--gpu', type=int, default='0')
     parser.add_argument('--model-config', type=str, default=None)
-    parser.add_argument('--train-config', type=str, default=None)
     parser.add_argument('--has-checkpoint', type=bool, default=False)
     parser.add_argument('--checkpoint-freq', type=int, default=5)
     parser.add_argument('--freeze-backbone', default=False, action='store_true')
@@ -60,8 +59,6 @@ def parse_arguments():
 def main():
     # load args
     args = parse_arguments()
-    if args.train_config is not None:
-        args = config.utils.update_args(args, args.train_config)  # update args with train config file
 
     print(f'Arguments:')
     for arg, val in vars(args).items():
@@ -162,8 +159,8 @@ def main():
     train_params = [p for p in model.parameters() if p.requires_grad]
     print(f'training {sum([p.numel() for p in train_params])} params')
 
-    # optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-    optim = Adam(params=train_params, lr=args.lr)
+    optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    #optim = RAdam(params=train_params, lr=args.lr)
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device, summary_writer, args.has_checkpoint, args.checkpoint_freq)
 
     # save model
