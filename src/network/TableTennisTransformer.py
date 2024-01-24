@@ -24,11 +24,11 @@ class TableTennisTransformer(torch.nn.Module):
 
         super().__init__()
         self.pos_encoder = LearnedPositionalEmbeddings(self.hidden_dim, self.seq_len)
-        encoder_layer = torch.nn.TransformerEncoderLayer(self.hidden_dim, self.num_heads, self.hidden_dim, self.dropout)
+        encoder_layer = torch.nn.TransformerEncoderLayer(self.hidden_dim, self.num_heads, self.hidden_dim, self.dropout)  # single encoder block
         self.norm = torch.nn.LayerNorm(self.hidden_dim)
         self.encoder_block = torch.nn.TransformerEncoder(encoder_layer, self.num_layers, norm=self.norm)
         self.embedder = torch.nn.Linear(self.input_dim, self.hidden_dim)
-        self.linear = torch.nn.Linear(self.hidden_dim, 1)
+        self.linear = torch.nn.Linear(self.hidden_dim, 1)  # same head as in hiera, but for binary classification
 
         print("Num trainable parameters: " + str(sum(p.numel() for p in self.parameters() if p.requires_grad)))
 

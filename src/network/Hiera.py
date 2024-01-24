@@ -6,7 +6,7 @@ from config.utils import load_config
 class HieraB(torch.nn.Module): # wrapper for hiera base (16x224x224, 51M params)
     def __init__(self, model_config: str):
         config = load_config(model_config)['hiera_b']
-        self.return_intermediates = config['return_intermediates']
+        self.return_intermediates = config['return_intermediates']  # return results after each hiera block, we only use the last intermediate results
 
         super().__init__()
         final_embed_dim = config['init_embed_dim'] * 2 ** (len(config['stages']) - 1)
@@ -19,7 +19,7 @@ class HieraB(torch.nn.Module): # wrapper for hiera base (16x224x224, 51M params)
                 param.requires_grad = False
 
         self.norm = nn.LayerNorm(final_embed_dim, eps=1e-6)  # same head as in the original model, but for binary classification
-        self.last = torch.nn.Linear(final_embed_dim, 1) # TODO maybe second linear layer?
+        self.last = torch.nn.Linear(final_embed_dim, 1)
         print(f'Number of trainable parameters: {sum(p.numel() for p in self.parameters() if p.requires_grad)}')
 
     def forward(self, x):
