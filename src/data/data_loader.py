@@ -28,6 +28,7 @@ def custom_random_split(dataset, val_split=0.1, seed=0):
     val_size = int(total_wins * val_split)
     assert total_wins == len(dataset)
 
+    # determine the number of sequences to put in the validation set
     split_idx = 0
     current_size = 0
     for i in range(len(sequence_wins_indices)):
@@ -35,7 +36,8 @@ def custom_random_split(dataset, val_split=0.1, seed=0):
         if current_size >= val_size:
             split_idx = i
             break
-
+    
+    # split the sequence wins into train and validation
     val_wins = sequence_wins_indices[:split_idx]
     train_wins = sequence_wins_indices[split_idx:]
 

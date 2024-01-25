@@ -26,18 +26,20 @@ class TTVid():
         self.src_fps = src_fps
         self.target_fps = target_fps
 
-        # seg-masks are stored and compressed using zarr
+        # depending on the mode, either load segmentation masks or poses
         if not use_poses:
             self.seg_masks = np.lib.format.open_memmap(os.path.join(path, 't3p3_masks.npy'))
         else:
-            self.poses = np.load(os.path.join(path, 'poses.npy'))  # (N, 2, 17, 2)
+            self.poses = np.load(os.path.join(path, 'poses.npy'))
             poses_shape = self.poses.shape
-            self.poses = np.reshape(self.poses, (poses_shape[0], poses_shape[1] * poses_shape[2], poses_shape[3]))  # (N, 34, 2)
-            self.poses = self.poses[4:, :, :]  # remove first 4 frames
-            self.poses = self.poses[:-10, :, :]  # remove last 10 frames
+            self.poses = np.reshape(self.poses, (poses_shape[0], poses_shape[1] * poses_shape[2], poses_shape[3]))
+            # remove first 4 frames
+            self.poses = self.poses[4:, :, :]  
+            # remove last 10 frames
+            self.poses = self.poses[:-10, :, :]  
 
             f = open(os.path.join(path, 'ball_pos.json'))
-            ball_pos_dict = json.load(f)  # (N, 2)
+            ball_pos_dict = json.load(f)
             ball_pos = np.zeros((len(ball_pos_dict.keys()), 2))
 
             for frame in ball_pos_dict.keys():
@@ -55,6 +57,7 @@ class TTVid():
         self.point_labels = np.loadtxt(os.path.join(path, 'point_labels.txt')).astype(int)
         print(f'{path=}')
 
+        # split the video into sequences based on the timestamps of the point labels
         self.sequences = []
         self.sequence_idx = []
         self.next_points = torch.empty(len(self.point_labels), 1, dtype=int)
@@ -65,7 +68,7 @@ class TTVid():
                 if i == 0:
                     start = 0
                 else:
-                    start = self.point_labels[i - 1][1] + 1 # maybe use different offset
+                    start = self.point_labels[i - 1][1] + 1 
                 if fixed_seq_len > 0:
                     start = end - fixed_seq_len if end - fixed_seq_len >= 0 else start
             else:
@@ -76,8 +79,8 @@ class TTVid():
                     self.serve_labels = self.serve_labels[:, 1]
                 serve_label = self.serve_labels[self.serve_labels < end]
                 assert serve_label.shape[0] > 0
-                start = serve_label[-1] # take serve preceeding current point
-                # start = self.serve_labels[serve_idx[-1]]
+                # take serve preceeding current point
+                start = serve_label[-1]
             next_point_player = self.point_labels[i][0]
             self.next_points[i] = next_point_player
             self.sequence_idx.append((start,end))
