@@ -122,14 +122,9 @@ def main():
         print(f'trn_loss: {loss:.4f}, trn_acc: {acc*100:.2f}%')
         loss, acc, _, _ = train.eval(val_loader, model, device)
         print(f'val_loss: {loss:.4f}, val_acc: {acc*100:.2f}%')
-        vid_accs = train.eval_test_split(tst_loader, model, device)
         print('Evaluating on test set...')
-        vid_accs = train.eval_split(tst_loader, model, device)
-        for vid in vid_accs:
-            acc = vid_accs[vid]['acc']
-            loss = vid_accs[vid]['loss']
-            print(f'{vid} -- loss: {loss:0.4f}, acc: {acc*100:02.2f}')
-        return
+        vid_accs = train.eval_test_split(tst_loader, model, device)
+        exit(0)
 
     # init logging w/ tensorboard
     exp_name = args.exp_name

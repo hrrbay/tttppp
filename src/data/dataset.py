@@ -55,7 +55,6 @@ class TTVid():
 
         # load all frames, create annotations
         self.point_labels = np.loadtxt(os.path.join(path, 'point_labels.txt')).astype(int)
-        print(f'{path=}')
 
         # split the video into sequences based on the timestamps of the point labels
         self.sequences = []
