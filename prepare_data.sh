@@ -1,6 +1,15 @@
 #!/bin/bash
 
+# check if T3P3_PATH env variable is set write it to data_path otherwise use default
+
 data_path=${1:-"./data"}/t3p3
+if [ -z ${T3P3_PATH+x} ]; then
+    echo "T3P3_PATH is unset. Using default path."
+else
+    echo "T3P3_PATH is set to '$T3P3_PATH'."
+    data_path=$T3P3_PATH
+fi
+
 echo "Downloading and extracting to ${data_path}. You can pass a different download path as the first argument if you want."
 echo "data-path: ${data_path}"
 

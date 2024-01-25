@@ -1,14 +1,13 @@
-import torchvision
 import os
 import pdb
 
 from torchvision import transforms
 
-from . import data_loader
-
-BASE_PATH = '/mnt/shared/datasets'
-# BASE_PATH = '/home/jakob/datasets'
-
+BASE_PATH = os.path.join(os.path.dirname(__file__), '..')
+BASE_PATH = os.path.abspath(BASE_PATH)
+if 'T3P3_PATH' in os.environ:
+    BASE_PATH = os.environ['T3P3_PATH']
+  
 data_config = {
     # TODO: add normalization for all
     'base': {

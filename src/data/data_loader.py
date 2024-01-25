@@ -2,16 +2,17 @@ import os
 import pdb
 import random
 
-import torchvision
-import torch
-from torch.utils.data import DataLoader, random_split, Dataset, Subset
+from torch.utils.data import DataLoader, Dataset, Subset, random_split
 
-from .dataset import TTVid, TTData
+from .dataset import TTData, TTVid
 
-import random
 
-def custom_random_split(dataset, val_split=0.1, seed=0):  # only split on sequence level (not on window level)
-    sequence_wins_indices = [] # tuple of start and end idx of sequence wins
+def custom_random_split(dataset, val_split=0.1, seed=0):
+    """
+        Custom random split that ensures that sequences are not split across train/val
+    """
+    # tuple of start and end idx of sequence wins
+    sequence_wins_indices = [] 
     for vid in dataset.vids:
         for i in range(len(vid.sequences)):
             if len(sequence_wins_indices) == 0:
@@ -56,8 +57,11 @@ def custom_random_split(dataset, val_split=0.1, seed=0):  # only split on sequen
 
 def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_size, seed, validation,
               fixed_seq_len, flip_prob, validation_vid=None, shuffle=False, transforms=[], num_workers=0, use_poses=False):
+    """
+        Load data from data_path and return train, val and test dataloaders.
+    """
 
-    # new split
+    # define train and test videos
     tst_vids = ['test_1', 'test_3', 'test_4', 'test_6', 'test_7']
     trn_vids = ['train_1', 'train_2', 'train_3', 'train_4', 'train_5', 'test_2', 'test_5']
 
@@ -69,28 +73,32 @@ def load_data(data_path, batch_size, src_fps, target_fps, labeled_start, window_
         val_dirs = [os.path.join(data_path, d) for d in os.listdir(data_path) if 'train' in d and str(validation_vid) in d]
     trn_dirs = [os.path.join(data_path, d) for d in os.listdir(data_path) if 'train' in d and d not in val_dirs]
 
-    val_loader = None
-    
+    # Creates instances of TTVid for each video
     trn_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len, use_poses=use_poses) for d in trn_dirs]
     tst_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len, use_poses=use_poses) for d in tst_dirs]
 
+    # Creates a custom dataset for the train and test videos
     trn_ds = TTData(trn_vids, window_size, transforms=transforms, flip_prob=flip_prob)
     tst_ds = TTData(tst_vids, window_size, transforms=transforms)
+    
+    # If validation videos are specified, create a custom dataset for them
+    val_loader = None 
     if val_dirs:
         val_vids = [TTVid(d, src_fps=src_fps, target_fps=target_fps, labeled_start=labeled_start, window_size=window_size, fixed_seq_len=fixed_seq_len) for d in val_dirs]
         val_ds = TTData(val_vids, window_size, transforms=transforms)
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         print(f'{len(val_loader)=}')
 
+    # If no validation videos are specified, create a random split
     if validation > 0 and not validation_vid:
         # no validation vid specified --> random split
         assert validation <= 1
-        # trn_ds, val_ds = random_split(trn_ds, [1-validation, validation], generator=torch.Generator().manual_seed(seed))
         trn_ds, val_ds = custom_random_split(trn_ds, val_split=validation, seed=seed)
         print(f'Loaded {len(trn_ds)} training samples and {len(val_ds)} validation samples.')
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         print(f'{len(val_loader)=}')
     
+    # Creates a DataLoader for the train and test datasets
     tst_loader = DataLoader(tst_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     trn_loader = DataLoader(trn_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 

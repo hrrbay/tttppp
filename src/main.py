@@ -1,27 +1,23 @@
 import argparse
-import importlib
-import pdb
-import os
-import time
 import json
-from datetime import datetime
+import os
+import pdb
 
+import network
+import numpy as np
 import torch
+import torchvision
+from network import TestNet
+import train
+from data import data_config, data_loader
 from torch.optim import SGD, Adam
 from torch.utils.tensorboard import SummaryWriter
 
-import torchvision
-import numpy as np
-
-from data import data_loader, dataset, data_config
-# from network import TestNet
-import train
-import network
-import config.utils
-
-
 
 def parse_arguments():
+    """
+        Parsing a lot of arguments
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp-name', default=None, type=str, required=False)
     parser.add_argument('--network', type=str, default='TestNet')
@@ -101,9 +97,8 @@ def main():
         setattr(model, head_name, torch.nn.Linear(in_features=head_var.in_features, out_features=1))
     else:
         raise NotImplementedError(f'Network {args.network} not implemented.')
-    # TODO: add other models here if needed
+    
     model.to(device)
-
     if args.freeze_backbone:
         layers = list(model.modules())[1:-1]
         for l in layers:
@@ -128,15 +123,13 @@ def main():
         loss, acc, _, _ = train.eval(val_loader, model, device)
         print(f'val_loss: {loss:.4f}, val_acc: {acc*100:.2f}%')
         vid_accs = train.eval_test_split(tst_loader, model, device)
-        # print('Evaluating on test set...')
-        # vid_accs = train.eval_split(tst_loader, model, device)
-        # for vid in vid_accs:
-        #     acc = vid_accs[vid]['acc']
-        #     loss = vid_accs[vid]['loss']
-        #     print(f'{vid} -- loss: {loss:0.4f}, acc: {acc*100:02.2f}')
-
-        exit(0)
-
+        print('Evaluating on test set...')
+        vid_accs = train.eval_split(tst_loader, model, device)
+        for vid in vid_accs:
+            acc = vid_accs[vid]['acc']
+            loss = vid_accs[vid]['loss']
+            print(f'{vid} -- loss: {loss:0.4f}, acc: {acc*100:02.2f}')
+        return
 
     # init logging w/ tensorboard
     exp_name = args.exp_name
@@ -155,15 +148,11 @@ def main():
     with open(os.path.join(run_dir, run_id, 'args.json'), 'w') as f:
         json.dump(vars(args), f, sort_keys=True, indent=4)
 
-    # optimizer
     train_params = [p for p in model.parameters() if p.requires_grad]
     print(f'training {sum([p.numel() for p in train_params])} params')
-
     optim = SGD(params=train_params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-    #optim = RAdam(params=train_params, lr=args.lr)
+    
     train.train(trn_loader, val_loader, tst_loader, args.nepochs, model, optim, args.lr_patience, args.lr_factor, args.lr_min, device, summary_writer, args.has_checkpoint, args.checkpoint_freq)
 
-    # save model
-    # torch.save(model.state_dict(), f'./models/{args.model_name}.ckpt')
 if __name__ == '__main__':
     main()

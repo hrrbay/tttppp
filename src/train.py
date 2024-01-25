@@ -1,30 +1,31 @@
-import torch
-import numpy as np
-import pdb
-import os
-import time
-from tqdm import tqdm
-from data import dataset
 import copy
+import os
+import pdb
+import time
+
+import numpy as np
+import torch
+from data import dataset
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+
 
 def criterion(outputs, targets):
     return torch.nn.functional.binary_cross_entropy_with_logits(outputs, targets.to(torch.float32))
 
 def train_epoch(trn_loader, model, optim, device):
+    """
+        Trains one epoch, return loss and grad history as well as average loss and grad
+    """
     model.train()
     loss_hist = []
     grad_hist = []
-    avg_loss = []
-    avg_grad = []
     for i,(masks, targets) in enumerate(tqdm(trn_loader, dynamic_ncols=True)):
         outputs = model(masks.to(device))
         optim.zero_grad()
         loss = criterion(outputs.to(device), targets.to(device))
         loss_hist.append(loss.item())
-        # TODO: clipgrad
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 2)
         grads = [
             param.grad.detach().flatten()
             for param in model.parameters()
@@ -34,10 +35,12 @@ def train_epoch(trn_loader, model, optim, device):
         grad_hist.append(norm.item())
         optim.step()
         
-    # training accuracy as well?
     return loss_hist, grad_hist, np.sum(loss_hist) / len(trn_loader),  np.sum(grad_hist) / len(trn_loader)
 
 def eval(loader, model, device):
+    """
+        Evaluates model on some data loader, return loss, accuracy and predictions
+    """
     with torch.no_grad():
 
         model.eval()
@@ -48,17 +51,20 @@ def eval(loader, model, device):
         for masks, targets in loader:
             outputs = model(masks.to(device))
             loss += criterion(outputs.to(device), targets.to(device)).item() * len(targets)
-            # print(loss)
             probs = torch.nn.functional.sigmoid(outputs)
             preds = probs > 0.5
             all_preds.extend(preds.tolist())
             all_targets.extend(targets.tolist())
             acc += (preds == targets.to(device)).sum().item()
+            
         loss /= len(loader.dataset)
         acc /= len(loader.dataset)
         return loss, acc, all_preds, all_targets
 
 def eval_test_split(loader, model, device):
+    """
+        Evaluates the model on each video in the test set separately
+    """
     vid_accs = {}
     with torch.no_grad():
         model.eval()
@@ -82,8 +88,10 @@ def eval_test_split(loader, model, device):
 
     return vid_accs
 
-    
 def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience, lr_factor, lr_min, device, summary_writer, has_checkpoint=False, checkpoint_freq=5):
+    """
+
+    """
     best_loss = 0
     best_model = model.state_dict()
     start_epoch = 0
@@ -108,7 +116,7 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
         training_loss_hist, training_grad_hist, avg_trn_loss, avg_trn_grad = train_epoch(trn_loader, model, optim, device)
         
         # do validation + patience
-        val_loss, val_acc = 0,0#eval(val_loader, model, device)
+        val_loss, val_acc = 0,0
         if epoch % checkpoint_freq == 0:
             torch.save({
                 'epoch': epoch,
@@ -127,9 +135,8 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
             print(f'trn_loss: {trn_loss:0.4f}, trn_acc: {trn_acc*100:02.2f} | ', end='')
             val_loss = trn_loss
         
-        # tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
-        # print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:.2f} | ', end='')
-        
+        # if the validation loss is better than the best loss, save the model and reset patience
+        # else, reduce patience and if patience is 0, reduce lr
         lr = optim.param_groups[0]['lr']
         if val_loss < best_loss or epoch == 0:
             best_loss = val_loss
@@ -141,7 +148,7 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
                 'optimizer_state_dict': copy.deepcopy(optim.state_dict()),
                 'loss': best_loss,
                 }, os.path.join(run_dir, 'model', 'best_model.pth'))
-            print(f' * best_loss: {best_loss:.4f}', end='') # new best model 
+            print(f' * best_loss: {best_loss:.4f}', end='')
         else:
             # patience
             patience -= 1
@@ -154,21 +161,8 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
                 model.load_state_dict(best_model)
 
         print()
-        # for batch, training_loss in enumerate(training_loss_hist):
-        #     summary_writer.add_scalar('loss/trn_per_batch', training_loss, batch + epoch * len(trn_loader))
-        # for batch, training_grad in enumerate(training_grad_hist):
-        #     summary_writer.add_scalar('grad_norm/trn_per_patch', training_grad, batch + epoch * len(trn_loader))
-
         summary_writer.add_scalar('loss/trn_avg', avg_trn_loss, epoch);
-        # summary_writer.add_scalar('loss/tst', tst_loss, epoch);
-        # summary_writer.add_scalar('acc/tst', tst_acc, epoch);
         summary_writer.add_scalar('grad_norm/trn_avg', avg_trn_grad, epoch);
-
-        
-        # summary_writer.add_scalar(f'{vid}/preds', 1 if pred[0] else 0, i)
-        # summary_writer.add_scalar(f'{vid}/targets', vid_accs[vid]['targets'][i][0], i)
-
-
         summary_writer.add_scalar('loss/val', val_loss, epoch)
         summary_writer.add_scalar('acc/val', val_acc, epoch)
         summary_writer.flush()
@@ -188,11 +182,10 @@ def train(trn_loader, val_loader, tst_loader, nepochs, model, optim, lr_patience
                     'target': vid_accs[vid]['targets'][i][0]
                 }, i)
                 
-    tst_loss, tst_acc, _, _ = eval(tst_loader, model, device)
+    _ , tst_acc, _, _ = eval(tst_loader, model, device)
     summary_writer.add_scalar('acc/tst', tst_acc, epoch)
     summary_writer.flush()
     summary_writer.close()
     print('-' * 80)
-    # print(f'tst_loss: {tst_loss:0.4f}, tst_acc: {tst_acc*100:02.2f}%')
     print(f'Total time trained: {(time.time() - t0)/3600:.2f}h')
     
