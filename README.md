@@ -62,3 +62,10 @@ After the encoder, we use the same head as in the Hiera finetuning approach.
 ```
 
 ### Evaluating trained models
+To evaluate trained models you first have to download them [here](TODO!!!) and place all `.pth`-files into `./models`.
+
+You can then evaluate all of the networks in the same way as training them, but replace `train` with `eval` in the script name. So, e.g., to evaluate on all networks run 
+```bash
+./scripts/eval_all.sh
+```
+Each script uses a checkpoint provided in `./models`.
