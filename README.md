@@ -62,7 +62,7 @@ After the encoder, we use the same head as in the Hiera finetuning approach.
 ```
 
 ### Evaluating trained models
-To evaluate trained models you first have to download them ([R3D_18](https://drive.google.com/file/d/11erJdRw1m8XoO9Y6bOQW_mgaWcSm6H4u/view?usp=sharing), [$\mu\ell$-net](https://drive.google.com/file/d/14ecJqsw_KPqBqYWNy4DAi9lcE7OsksNM/view?usp=sharing)) and place all `.pth`-files into `./models`.
+To evaluate trained models you first have to download them ([R3D_18](https://drive.google.com/file/d/11erJdRw1m8XoO9Y6bOQW_mgaWcSm6H4u/view?usp=sharing), [$\mu\ell$-net](https://drive.google.com/file/d/14ecJqsw_KPqBqYWNy4DAi9lcE7OsksNM/view?usp=sharing), [Hiera](https://drive.google.com/file/d/1QJxYlVNMXRPW4T-M2dtSSNhDsrW7BNLn/view?usp=sharing), [TTTransformer](https://drive.google.com/file/d/1y1MiN4TdBmXIea0QIPYGQJgGgGqkwSDC/view?usp=sharing)) and place all `.pth`-files into `./models`.
 
 You can then evaluate all of the networks in the same way as training them, but replace `train` with `test` in the script name. So, e.g., to evaluate on all networks run 
 ```bash
