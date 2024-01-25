@@ -10,7 +10,7 @@ echo "data-path: ${data_path}"
 
 # wget from gdrive as described in https://medium.com/@acpanjan/download-google-drive-files-using-wget-3c2c025a8b99
 # switch to gdown. Seems to be more reliable than wget
-file_id=1dPysMHuSuKPVnWYtIVMqSVnpnoHbwBMH
+file_id=1Y38JHB0OtZHx2hufWOKoeJ00geflup98
 mkdir -p ${data_path}
 out_name=${data_path}/t3p3_data.tar.gz
 gdown https://drive.google.com/uc?id=$file_id --output $out_name

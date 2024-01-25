@@ -12,7 +12,6 @@ python3 ${SCRIPT_DIR}/../src/main.py \
 --fixed-seq-len 200 \
 --flip-prob 0.5 \
 --gpu 1 \
---labeled-start \
 --lr 0.01 \
 --lr-factor 3 \
 --lr-min 0.00001 \
