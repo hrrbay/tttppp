@@ -10,13 +10,13 @@ if 'T3P3_PATH' in os.environ:
   
 data_config = {
     'base': {
-        'path': os.path.join(BASE_PATH, 't3p3'),
+        'path': os.path.join(BASE_PATH),
         'transforms': [
             transforms.Normalize(mean=0.012362, std=0.076184),
         ]
     },
     'r3d_18': {
-        'path': os.path.join(BASE_PATH, 't3p3'),
+        'path': os.path.join(BASE_PATH),
         'transforms': [
             transforms.Normalize(mean=0.012362, std=0.076184),
             transforms.Resize((112,112)),
@@ -24,7 +24,7 @@ data_config = {
         ]
     },
     'hiera': {
-            'path': os.path.join(BASE_PATH, 't3p3'),
+            'path': os.path.join(BASE_PATH),
             'transforms': [
                 transforms.Normalize(mean=0.012362, std=0.076184),
                 transforms.Resize((224, 224)),
@@ -32,7 +32,7 @@ data_config = {
             ]
         },
     'tttransformer': {
-            'path': os.path.join(BASE_PATH, 't3p3'),
+            'path': os.path.join(BASE_PATH),
             'transforms': [
             ]
         }
