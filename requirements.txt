@@ -3,7 +3,7 @@ hiera_transformer==0.1.2
 matplotlib==3.8.2
 numpy==1.26.3
 opencv_python==4.8.1.78
-Pillow==10.2.0
+Pillow
 PyYAML==6.0.1
 scipy==1.12.0
 torch
