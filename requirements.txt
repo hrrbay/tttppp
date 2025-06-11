@@ -8,7 +8,7 @@ PyYAML==6.0.1
 scipy==1.12.0
 torch
 torchvision==0.16.1
-tqdm==4.66.1
+tqdm
 ultralytics==8.0.222
 tensorboard==2.15.1
 gdown==4.7.3
