@@ -6,7 +6,7 @@ opencv_python==4.8.1.78
 Pillow==10.2.0
 PyYAML==6.0.1
 scipy==1.12.0
-torch==2.1.1
+torch
 torchvision==0.16.1
 tqdm==4.66.1
 ultralytics==8.0.222
